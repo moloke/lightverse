@@ -105,3 +105,41 @@ export function generateHint(verseText: string, currentStep: number): string {
     const hintWords = Math.min(currentVisible + 3, totalWords);
     return words.slice(0, hintWords).join(" ") + "...";
 }
+
+/**
+ * Create structured cloze test data for interactive components
+ */
+export function createClozeTest(verseText: string, step: number) {
+    const words = verseText.split(/\s+/);
+    const totalWords = words.length;
+
+    // Calculate how many words to hide based on step
+    // Step 1: 0% hidden
+    // Step 7: 90% hidden
+    const percentages = [0, 0.15, 0.30, 0.45, 0.60, 0.75, 0.90];
+    const hidePercentage = percentages[step - 1] || 0;
+
+    const wordsToHideCount = Math.floor(totalWords * hidePercentage);
+
+    // Determine which words to hide
+    // For a deterministic but progressive experience, we can hide words from the end
+    // or use a seeded random approach. For now, let's hide from the end to match the "visible words" logic
+    // actually, the previous logic was "visible words from start".
+    // Let's stick to that: show first N words, hide the rest.
+
+    const visibleCount = totalWords - wordsToHideCount;
+
+    const parts = words.map((word, index) => {
+        return {
+            word: word,
+            hidden: index >= visibleCount
+        };
+    });
+
+    return {
+        parts,
+        step,
+        totalWords,
+        hiddenCount: wordsToHideCount
+    };
+}

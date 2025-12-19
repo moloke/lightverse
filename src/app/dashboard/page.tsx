@@ -77,9 +77,11 @@ export default async function DashboardPage() {
                             </p>
 
                             <div className="flex gap-4">
-                                <Button className="w-full md:w-auto">
-                                    Practice Now
-                                </Button>
+                                <Link href={`/practice/${activeSession.id}`} className="w-full md:w-auto">
+                                    <Button className="w-full">
+                                        Practice Now
+                                    </Button>
+                                </Link>
                                 <Link href="/verses">
                                     <Button variant="outline" className="w-full md:w-auto">
                                         Change Verse
