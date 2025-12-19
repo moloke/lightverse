@@ -29,7 +29,6 @@ export async function POST(request: NextRequest) {
         });
 
         if (error) {
-            console.error("Supabase OTP error:", error);
             return NextResponse.json(
                 { error: error.message || "Failed to send verification code" },
                 { status: 500 }
@@ -41,7 +40,6 @@ export async function POST(request: NextRequest) {
             message: "Verification code sent successfully",
         });
     } catch (error) {
-        console.error("Send OTP error:", error);
         return NextResponse.json(
             { error: "An unexpected error occurred" },
             { status: 500 }

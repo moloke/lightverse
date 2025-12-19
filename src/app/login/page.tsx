@@ -25,9 +25,7 @@ export default function LoginPage() {
             // Check if response is JSON
             const contentType = response.headers.get("content-type");
             if (!contentType || !contentType.includes("application/json")) {
-                const text = await response.text();
-                console.error("Non-JSON response:", text);
-                throw new Error("Server error. Check console for details.");
+                throw new Error("Server error. Please try again later.");
             }
 
             const data = await response.json();

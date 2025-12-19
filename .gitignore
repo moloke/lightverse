@@ -43,3 +43,7 @@ next-env.d.ts
 # supabase
 supabase/.branches
 supabase/.temp
+
+# documentation
+SETUP_GUIDE.md
+push-to-github.sh

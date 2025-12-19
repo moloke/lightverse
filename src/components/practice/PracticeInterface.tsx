@@ -38,7 +38,7 @@ export function PracticeInterface({ session }: PracticeInterfaceProps) {
                 setCurrentStep(result.nextStep);
             }
         } catch (error) {
-            console.error("Failed to update progress:", error);
+            // Error updating progress
         } finally {
             setIsUpdating(false);
         }

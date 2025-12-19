@@ -38,6 +38,19 @@ export default async function DashboardPage() {
         .is("completed_at", null)
         .single();
 
+    // Get stats
+    const { count: completedVersesCount } = await supabase
+        .from("verse_sessions")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .not("completed_at", "is", null);
+
+    const { data: streakData } = await supabase
+        .from("streaks")
+        .select("current_streak")
+        .eq("user_id", user.id)
+        .single();
+
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
             <div className="container mx-auto px-4 py-8">
@@ -117,7 +130,7 @@ export default async function DashboardPage() {
                                 <BookOpen className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">0</div>
+                                <div className="text-2xl font-bold">{completedVersesCount || 0}</div>
                                 <p className="text-xs text-muted-foreground">
                                     Memorized so far
                                 </p>
@@ -132,7 +145,7 @@ export default async function DashboardPage() {
                                 <Activity className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">0</div>
+                                <div className="text-2xl font-bold">{streakData?.current_streak || 0}</div>
                                 <p className="text-xs text-muted-foreground">
                                     Days in a row
                                 </p>
@@ -147,7 +160,7 @@ export default async function DashboardPage() {
                                 <Trophy className="h-4 w-4 text-muted-foreground" />
                             </CardHeader>
                             <CardContent>
-                                <div className="text-2xl font-bold">0</div>
+                                <div className="text-2xl font-bold">{profile?.total_xp || 0}</div>
                                 <p className="text-xs text-muted-foreground">
                                     Experience points
                                 </p>

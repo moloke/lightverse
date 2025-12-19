@@ -5,7 +5,7 @@ const authToken = process.env.TWILIO_AUTH_TOKEN;
 const twilioPhoneNumber = process.env.TWILIO_PHONE_NUMBER;
 
 if (!accountSid || !authToken || !twilioPhoneNumber) {
-    console.warn("Twilio credentials not configured. SMS functionality will not work.");
+    // Twilio credentials not configured
 }
 
 export const twilioClient = accountSid && authToken ? twilio(accountSid, authToken) : null;
@@ -33,7 +33,6 @@ export async function sendSMS({ to, message }: SendSMSParams) {
             status: result.status,
         };
     } catch (error) {
-        console.error("Failed to send SMS:", error);
         throw error;
     }
 }
