@@ -66,3 +66,58 @@ export async function startSession(verseId: string) {
     revalidatePath("/dashboard");
     redirect("/dashboard");
 }
+
+export async function getSession(sessionId: string) {
+    const supabase = await createClient();
+
+    const { data: session, error } = await supabase
+        .from("verse_sessions")
+        .select(`
+      *,
+      bible_verses (
+        reference,
+        text,
+        translation
+      )
+    `)
+        .eq("id", sessionId)
+        .single();
+
+    if (error) {
+        console.error("Error fetching session:", error);
+        return null;
+    }
+
+    return session;
+}
+
+export async function updateProgress(sessionId: string, currentStep: number) {
+    const supabase = await createClient();
+
+    const nextStep = currentStep + 1;
+    const isCompleted = nextStep > 7;
+
+    const updates: any = {
+        current_step: isCompleted ? 7 : nextStep,
+        updated_at: new Date().toISOString(),
+    };
+
+    if (isCompleted) {
+        updates.completed_at = new Date().toISOString();
+    }
+
+    const { error } = await supabase
+        .from("verse_sessions")
+        .update(updates)
+        .eq("id", sessionId);
+
+    if (error) {
+        console.error("Error updating progress:", error);
+        throw new Error("Failed to update progress");
+    }
+
+    revalidatePath(`/practice/${sessionId}`);
+    revalidatePath("/dashboard");
+
+    return { success: true, isCompleted, nextStep };
+}
