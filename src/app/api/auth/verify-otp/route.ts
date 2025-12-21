@@ -22,7 +22,6 @@ export async function POST(request: NextRequest) {
         });
 
         if (error) {
-            console.error("Supabase verify OTP error:", error);
             return NextResponse.json(
                 { error: error.message || "Invalid verification code" },
                 { status: 400 }
@@ -53,7 +52,6 @@ export async function POST(request: NextRequest) {
                 });
 
             if (insertError) {
-                console.error("Error creating user profile:", insertError);
                 // Don't fail the request, user is still authenticated
             }
         }
@@ -67,7 +65,6 @@ export async function POST(request: NextRequest) {
             },
         });
     } catch (error) {
-        console.error("Verify OTP error:", error);
         return NextResponse.json(
             { error: "An unexpected error occurred" },
             { status: 500 }

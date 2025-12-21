@@ -109,6 +109,9 @@ export function generateHint(verseText: string, currentStep: number): string {
 /**
  * Create structured cloze test data for interactive components
  */
+/**
+ * Create structured cloze test data for interactive components
+ */
 export function createClozeTest(verseText: string, step: number) {
     const words = verseText.split(/\s+/);
     const totalWords = words.length;
@@ -121,18 +124,24 @@ export function createClozeTest(verseText: string, step: number) {
 
     const wordsToHideCount = Math.floor(totalWords * hidePercentage);
 
-    // Determine which words to hide
-    // For a deterministic but progressive experience, we can hide words from the end
-    // or use a seeded random approach. For now, let's hide from the end to match the "visible words" logic
-    // actually, the previous logic was "visible words from start".
-    // Let's stick to that: show first N words, hide the rest.
+    // Create an array of indices [0, 1, ... totalWords-1]
+    const indices = Array.from({ length: totalWords }, (_, i) => i);
 
-    const visibleCount = totalWords - wordsToHideCount;
+    // Shuffle indices to pick random words to hide
+    // We use a seeded-like approach based on step to keep it consistent if re-rendered?
+    // Actually, for a practice session, random is fine.
+    for (let i = indices.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [indices[i], indices[j]] = [indices[j], indices[i]];
+    }
+
+    // Take the first N indices as the ones to hide
+    const indicesToHide = new Set(indices.slice(0, wordsToHideCount));
 
     const parts = words.map((word, index) => {
         return {
             word: word,
-            hidden: index >= visibleCount
+            hidden: indicesToHide.has(index)
         };
     });
 

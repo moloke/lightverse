@@ -12,10 +12,7 @@ export async function getVerses() {
         .select("*")
         .order("created_at", { ascending: true });
 
-    if (error) {
-        console.error("Error fetching verses:", error);
-        return [];
-    }
+    return [];
 
     return verses;
 }
@@ -59,7 +56,6 @@ export async function startSession(verseId: string) {
     });
 
     if (error) {
-        console.error("Error creating session:", error);
         throw new Error("Failed to start memorization session");
     }
 
@@ -84,7 +80,6 @@ export async function getSession(sessionId: string) {
         .single();
 
     if (error) {
-        console.error("Error fetching session:", error);
         return null;
     }
 
@@ -94,9 +89,16 @@ export async function getSession(sessionId: string) {
 export async function updateProgress(sessionId: string, currentStep: number) {
     const supabase = await createClient();
 
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) throw new Error("Unauthorized");
+
     const nextStep = currentStep + 1;
     const isCompleted = nextStep > 7;
 
+    // 1. Update Session Progress
     const updates: any = {
         current_step: isCompleted ? 7 : nextStep,
         updated_at: new Date().toISOString(),
@@ -106,18 +108,83 @@ export async function updateProgress(sessionId: string, currentStep: number) {
         updates.completed_at = new Date().toISOString();
     }
 
-    const { error } = await supabase
+    const { error: sessionError } = await supabase
         .from("verse_sessions")
         .update(updates)
         .eq("id", sessionId);
 
-    if (error) {
-        console.error("Error updating progress:", error);
+    if (sessionError) {
         throw new Error("Failed to update progress");
+    }
+
+    // 2. Handle Stats (XP & Streak)
+    // XP Logic: 10 XP per step, 100 XP bonus for completion
+    let xpGain = 10;
+    if (isCompleted) xpGain += 100;
+
+    // Update XP
+    const { data: userData } = await supabase
+        .from("users")
+        .select("total_xp")
+        .eq("id", user.id)
+        .single();
+
+    const currentXp = userData?.total_xp || 0;
+    await supabase
+        .from("users")
+        .update({ total_xp: currentXp + xpGain })
+        .eq("id", user.id);
+
+    // Streak Logic
+    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+
+    const { data: streakData } = await supabase
+        .from("streaks")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+
+    if (streakData) {
+        const lastActivity = (streakData.date || streakData.last_activity_date).split('T')[0];
+
+        if (lastActivity !== today) {
+            // Check if it's consecutive (yesterday)
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yesterdayStr = yesterday.toISOString().split('T')[0];
+
+            let newStreak = streakData.current_streak;
+            if (lastActivity === yesterdayStr) {
+                newStreak += 1;
+            } else {
+                newStreak = 1; // Reset if missed a day
+            }
+
+            const { error: updateError } = await supabase
+                .from("streaks")
+                .update({
+                    current_streak: newStreak,
+                    date: new Date().toISOString()
+                })
+                .eq("user_id", user.id);
+
+            // Error updating streak
+        }
+    } else {
+        // Create first streak record
+        const { error: insertError } = await supabase
+            .from("streaks")
+            .insert({
+                user_id: user.id,
+                current_streak: 1,
+                date: new Date().toISOString()
+            });
+
+        // Error creating streak
     }
 
     revalidatePath(`/practice/${sessionId}`);
     revalidatePath("/dashboard");
 
-    return { success: true, isCompleted, nextStep };
+    return { success: true, isCompleted, nextStep, xpGain };
 }

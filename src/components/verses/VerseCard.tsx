@@ -24,7 +24,6 @@ export function VerseCard({ verse }: VerseCardProps) {
         try {
             await startSession(verse.id);
         } catch (error) {
-            console.error("Failed to start session:", error);
             setIsLoading(false);
         }
     };
