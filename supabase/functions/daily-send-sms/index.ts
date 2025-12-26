@@ -3,26 +3,42 @@ import { createServiceClient } from '../_shared/supabase.ts'
 import { getTwilioConfig, sendSMS } from '../_shared/twilio.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
-// Cloze deletion logic (copied from frontend utils)
-function generateClozeText(text: string, step: number): string {
-  const words = text.split(/\s+/)
+// Cloze deletion logic with random word hiding
+function generateClozeText(verseText: string, step: number): string {
+  const words = verseText.split(/\s+/)
   const totalWords = words.length
   
-  // Progressive reduction: 100%, 85%, 70%, 55%, 40%, 25%, 10%
-  const percentages = [1.0, 0.85, 0.70, 0.55, 0.40, 0.25, 0.10]
-  const percentage = percentages[step - 1] || 0.10
+  // Progressive hiding: 0%, 15%, 30%, 45%, 60%, 75%, 90%
+  const percentages = [0, 0.15, 0.30, 0.45, 0.60, 0.75, 0.90]
+  const hidePercentage = percentages[step - 1] || 0
   
-  const visibleWords = Math.max(2, Math.ceil(totalWords * percentage))
+  const wordsToHideCount = Math.floor(totalWords * hidePercentage)
   
-  if (step === 1) {
-    return text
+  if (step === 1 || wordsToHideCount === 0) {
+    return verseText
   }
   
-  const visiblePart = words.slice(0, visibleWords).join(' ')
-  const hiddenCount = totalWords - visibleWords
-  const blanks = '_____'.repeat(Math.min(hiddenCount, 5))
+  // Create array of all word indices
+  const indices = Array.from({ length: totalWords }, (_, i) => i)
   
-  return `${visiblePart} ${blanks}`
+  // Fisher-Yates shuffle to randomize
+  for (let i = indices.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [indices[i], indices[j]] = [indices[j], indices[i]]
+  }
+  
+  // Take first N indices as the ones to hide
+  const indicesToHide = new Set(indices.slice(0, wordsToHideCount))
+  
+  // Build the cloze text with blanks
+  return words
+    .map((word, index) => {
+      if (indicesToHide.has(index)) {
+        return '_____' // Replace with blank
+      }
+      return word
+    })
+    .join(' ')
 }
 
 serve(async (req) => {
@@ -35,7 +51,7 @@ serve(async (req) => {
     const supabase = createServiceClient()
     const twilioConfig = getTwilioConfig()
 
-    // Fetch all active sessions
+    // Fetch all active sessions (excluding disabled accounts)
     const { data: sessions, error: sessionsError } = await supabase
       .from('verse_sessions')
       .select(`
@@ -45,7 +61,9 @@ serve(async (req) => {
         last_message_at,
         user_id,
         users!inner (
-          phone_number
+          phone_number,
+          paused_until,
+          account_disabled
         ),
         bible_verses!inner (
           reference,
@@ -54,6 +72,7 @@ serve(async (req) => {
         )
       `)
       .is('completed_at', null)
+      .eq('users.account_disabled', false)
 
     if (sessionsError) {
       throw new Error(`Failed to fetch sessions: ${sessionsError.message}`)
@@ -77,6 +96,15 @@ serve(async (req) => {
     // Process each session
     for (const session of sessions) {
       try {
+        // Check if account is paused
+        if (session.users.paused_until) {
+          const pausedUntil = new Date(session.users.paused_until)
+          if (pausedUntil > new Date()) {
+            results.skipped++
+            continue
+          }
+        }
+
         // Skip if already sent today
         if (session.last_message_at) {
           const lastSent = new Date(session.last_message_at)

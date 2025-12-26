@@ -12,21 +12,33 @@ ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies
 -- Users can only read and update their own data
-CREATE POLICY "Users can view own profile"
-  ON public.users
-  FOR SELECT
-  USING (auth.uid() = id);
+DO $$ BEGIN
+  CREATE POLICY "Users can view own profile"
+    ON public.users
+    FOR SELECT
+    USING (auth.uid() = id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
-CREATE POLICY "Users can update own profile"
-  ON public.users
-  FOR UPDATE
-  USING (auth.uid() = id);
+DO $$ BEGIN
+  CREATE POLICY "Users can update own profile"
+    ON public.users
+    FOR UPDATE
+    USING (auth.uid() = id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Allow users to insert their own profile on signup
-CREATE POLICY "Users can insert own profile"
-  ON public.users
-  FOR INSERT
-  WITH CHECK (auth.uid() = id);
+DO $$ BEGIN
+  CREATE POLICY "Users can insert own profile"
+    ON public.users
+    FOR INSERT
+    WITH CHECK (auth.uid() = id);
+EXCEPTION
+  WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Create index for faster lookups
 CREATE INDEX IF NOT EXISTS users_phone_number_idx ON public.users(phone_number);
