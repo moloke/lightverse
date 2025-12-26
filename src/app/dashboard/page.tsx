@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, Trophy, Activity } from "lucide-react";
+import { UserMenu } from "@/components/auth/UserMenu";
 
 export default async function DashboardPage() {
     const supabase = await createClient();
@@ -64,9 +65,7 @@ export default async function DashboardPage() {
                                 Welcome back!
                             </p>
                         </div>
-                        <div className="text-sm text-gray-500">
-                            {profile?.phone_number}
-                        </div>
+                        <UserMenu displayName={profile?.name || profile?.phone_number || "User"} />
                     </header>
 
                     {activeSession ? (
