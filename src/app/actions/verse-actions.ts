@@ -12,9 +12,12 @@ export async function getVerses() {
         .select("*")
         .order("created_at", { ascending: true });
 
-    return [];
+    if (error) {
+        console.error("Error fetching verses:", error);
+        return [];
+    }
 
-    return verses;
+    return verses || [];
 }
 
 export async function startSession(verseId: string) {
