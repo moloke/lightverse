@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface OTPVerificationFormProps {
     phoneNumber: string;
@@ -81,7 +82,14 @@ export function OTPVerificationForm({
                         className="w-full text-lg py-6 bg-indigo-600 hover:bg-indigo-700 shadow-lg"
                         disabled={isLoading || code.length !== 6}
                     >
-                        {isLoading ? "Verifying..." : "Verify & Continue"}
+                        {isLoading ? (
+                            <div className="flex items-center justify-center gap-2">
+                                <LoadingSpinner size="sm" />
+                                <span>Verifying...</span>
+                            </div>
+                        ) : (
+                            "Verify & Continue"
+                        )}
                     </Button>
                     <div className="text-center">
                         <Button

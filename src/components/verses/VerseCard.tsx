@@ -4,6 +4,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button";
 import { startSession } from "@/app/actions/verse-actions";
 import { useState } from "react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface Verse {
     id: string;
@@ -45,7 +46,14 @@ export function VerseCard({ verse }: VerseCardProps) {
                     onClick={handleSelect}
                     disabled={isLoading}
                 >
-                    {isLoading ? "Starting..." : "Memorize This"}
+                    {isLoading ? (
+                        <div className="flex items-center justify-center gap-2">
+                            <LoadingSpinner size="sm" />
+                            <span>Starting...</span>
+                        </div>
+                    ) : (
+                        "Memorize This"
+                    )}
                 </Button>
             </CardFooter>
         </Card>

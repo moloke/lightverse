@@ -21,6 +21,7 @@ import {
     SelectValue,
 } from "@/components/ui/select";
 import { MessageCircle, Bug, HelpCircle, Lightbulb } from "lucide-react";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface SupportTicketDialogProps {
     trigger?: React.ReactNode;
@@ -257,7 +258,14 @@ export function SupportTicketDialog({ trigger, variant = "button" }: SupportTick
                                 disabled={loading || !email.trim() || !subject.trim() || !description.trim()}
                                 className="flex-1 bg-indigo-600 hover:bg-indigo-700"
                             >
-                                {loading ? "Submitting..." : "Submit Ticket"}
+                                {loading ? (
+                                    <div className="flex items-center justify-center gap-2">
+                                        <LoadingSpinner size="sm" />
+                                        <span>Submitting...</span>
+                                    </div>
+                                ) : (
+                                    "Submit Ticket"
+                                )}
                             </Button>
                         </div>
                     </form>

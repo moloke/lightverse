@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface PhoneNumberInputProps {
     onSubmit: (phoneNumber: string) => void;
@@ -88,7 +89,14 @@ export function PhoneNumberInput({ onSubmit, isLoading = false }: PhoneNumberInp
                         className="w-full text-lg py-6 bg-indigo-600 hover:bg-indigo-700 shadow-lg"
                         disabled={isLoading}
                     >
-                        {isLoading ? "Sending code..." : "Send Verification Code"}
+                        {isLoading ? (
+                            <div className="flex items-center justify-center gap-2">
+                                <LoadingSpinner size="sm" />
+                                <span>Sending code...</span>
+                            </div>
+                        ) : (
+                            "Send Verification Code"
+                        )}
                     </Button>
                     <p className="text-xs text-center text-gray-500">No credit card required</p>
                 </form>

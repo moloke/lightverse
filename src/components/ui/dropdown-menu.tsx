@@ -75,17 +75,24 @@ export function DropdownMenuContent({
   )
 }
 
-export function DropdownMenuItem({ 
-  children, 
-  onClick 
-}: { 
+export function DropdownMenuItem({
+  children,
+  onClick,
+  disabled = false
+}: {
   children: React.ReactNode
-  onClick?: () => void 
+  onClick?: () => void
+  disabled?: boolean
 }) {
   return (
     <button
       onClick={onClick}
-      className="block w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+      disabled={disabled}
+      className={`block w-full text-left px-4 py-2 text-sm transition-colors ${
+        disabled
+          ? "text-gray-400 dark:text-gray-500 cursor-not-allowed"
+          : "text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700"
+      }`}
     >
       {children}
     </button>

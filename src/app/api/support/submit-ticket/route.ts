@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { sendSupportTicketEmail } from "@/lib/email/client";
 
 export async function POST(request: NextRequest) {
     try {
@@ -72,6 +73,29 @@ export async function POST(request: NextRequest) {
                 { error: "Failed to create support ticket" },
                 { status: 500 }
             );
+        }
+
+        // Send email notification if configured
+        const adminEmail = process.env.SUPPORT_NOTIFICATION_EMAIL;
+        if (adminEmail) {
+            try {
+                await sendSupportTicketEmail(adminEmail, {
+                    ticketId: data.id,
+                    ticketType: data.ticket_type,
+                    subject: data.subject,
+                    description: data.description,
+                    userEmail: data.user_email,
+                    userPhone: data.user_phone,
+                    createdAt: data.created_at,
+                });
+                console.log('Support ticket email sent successfully to:', adminEmail);
+            } catch (emailError) {
+                // Log the error but don't fail the request
+                // The ticket was created successfully, email is just a notification
+                console.error('Failed to send support ticket email:', emailError);
+            }
+        } else {
+            console.warn('SUPPORT_NOTIFICATION_EMAIL not configured - skipping email notification');
         }
 
         return NextResponse.json({
