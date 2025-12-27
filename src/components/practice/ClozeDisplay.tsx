@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, XCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface ClozeDisplayProps {
     text: string;
@@ -68,7 +69,7 @@ export function ClozeDisplay({ text, step, onComplete }: ClozeDisplayProps) {
         }
     };
 
-    if (!clozeData) return <div>Loading...</div>;
+    if (!clozeData) return <LoadingSpinner size="md" text="Loading..." />;
 
     return (
         <div className="space-y-8">

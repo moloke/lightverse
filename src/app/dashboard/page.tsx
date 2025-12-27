@@ -1,56 +1,122 @@
-import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
+"use client";
+
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, Trophy, Activity } from "lucide-react";
 import { UserMenu } from "@/components/auth/UserMenu";
+import { SupportTicketButton } from "@/components/support/SupportTicketButton";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
-export default async function DashboardPage() {
-    const supabase = await createClient();
+interface Profile {
+    id: string;
+    name: string | null;
+    phone_number: string;
+    total_xp: number;
+}
 
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+interface ActiveSession {
+    id: string;
+    current_step: number;
+    total_steps: number;
+    bible_verses: {
+        reference: string;
+        text: string;
+        translation: string;
+    };
+}
 
-    if (!user) {
-        redirect("/login");
+interface StreakData {
+    current_streak: number;
+}
+
+export default function DashboardPage() {
+    const router = useRouter();
+    const [loading, setLoading] = useState(true);
+    const [profile, setProfile] = useState<Profile | null>(null);
+    const [activeSession, setActiveSession] = useState<ActiveSession | null>(null);
+    const [completedVersesCount, setCompletedVersesCount] = useState(0);
+    const [streakData, setStreakData] = useState<StreakData | null>(null);
+
+    useEffect(() => {
+        loadDashboardData();
+    }, []);
+
+    const loadDashboardData = async () => {
+        try {
+            const supabase = createClient();
+            const { data: { user } } = await supabase.auth.getUser();
+
+            if (!user) {
+                router.push("/login");
+                return;
+            }
+
+            // Get user profile
+            const { data: profileData } = await supabase
+                .from("users")
+                .select("*")
+                .eq("id", user.id)
+                .single();
+
+            if (profileData) {
+                setProfile(profileData);
+            }
+
+            // Get active session
+            const { data: sessionData } = await supabase
+                .from("verse_sessions")
+                .select(`
+                    *,
+                    bible_verses (
+                        reference,
+                        text,
+                        translation
+                    )
+                `)
+                .eq("user_id", user.id)
+                .is("completed_at", null)
+                .single();
+
+            if (sessionData) {
+                setActiveSession(sessionData);
+            }
+
+            // Get stats
+            const { count } = await supabase
+                .from("verse_sessions")
+                .select("*", { count: "exact", head: true })
+                .eq("user_id", user.id)
+                .not("completed_at", "is", null);
+
+            setCompletedVersesCount(count || 0);
+
+            const { data: streak } = await supabase
+                .from("streaks")
+                .select("current_streak")
+                .eq("user_id", user.id)
+                .single();
+
+            if (streak) {
+                setStreakData(streak);
+            }
+        } catch (error) {
+            console.error("Error loading dashboard:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+                <LoadingSpinner size="lg" text="Loading dashboard..." />
+            </div>
+        );
     }
-
-    // Get user profile
-    const { data: profile } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-    // Get active session
-    const { data: activeSession } = await supabase
-        .from("verse_sessions")
-        .select(`
-      *,
-      bible_verses (
-        reference,
-        text,
-        translation
-      )
-    `)
-        .eq("user_id", user.id)
-        .is("completed_at", null)
-        .single();
-
-    // Get stats
-    const { count: completedVersesCount } = await supabase
-        .from("verse_sessions")
-        .select("*", { count: "exact", head: true })
-        .eq("user_id", user.id)
-        .not("completed_at", "is", null);
-
-    const { data: streakData } = await supabase
-        .from("streaks")
-        .select("current_streak")
-        .eq("user_id", user.id)
-        .single();
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
@@ -168,6 +234,9 @@ export default async function DashboardPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Floating Support Button */}
+            <SupportTicketButton />
         </div>
     );
 }

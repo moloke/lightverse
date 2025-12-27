@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface OTPVerificationFormProps {
     phoneNumber: string;
@@ -52,17 +53,17 @@ export function OTPVerificationForm({
     };
 
     return (
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md bg-white/90 backdrop-blur-sm border-2 border-indigo-200 shadow-2xl">
             <CardHeader>
-                <CardTitle>Verify Your Phone</CardTitle>
-                <CardDescription>
-                    We sent a 6-digit code to {phoneNumber}
+                <CardTitle className="text-2xl font-bold text-gray-900">Verify Your Number</CardTitle>
+                <CardDescription className="text-sm text-gray-600">
+                    Enter the 6-digit code sent to {phoneNumber}
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="code">Verification Code</Label>
+                        <Label htmlFor="code" className="text-gray-700">Verification Code</Label>
                         <Input
                             id="code"
                             type="text"
@@ -71,21 +72,32 @@ export function OTPVerificationForm({
                             value={code}
                             onChange={handleChange}
                             disabled={isLoading}
-                            className={`text-center text-2xl tracking-widest ${error ? "border-red-500" : ""}`}
+                            className={`text-lg py-6 text-center tracking-widest ${error ? "border-red-500" : ""}`}
                             maxLength={6}
                         />
                         {error && <p className="text-sm text-red-500">{error}</p>}
                     </div>
-                    <Button type="submit" className="w-full" disabled={isLoading || code.length !== 6}>
-                        {isLoading ? "Verifying..." : "Verify"}
+                    <Button
+                        type="submit"
+                        className="w-full text-lg py-6 bg-indigo-600 hover:bg-indigo-700 shadow-lg"
+                        disabled={isLoading || code.length !== 6}
+                    >
+                        {isLoading ? (
+                            <div className="flex items-center justify-center gap-2">
+                                <LoadingSpinner size="sm" />
+                                <span>Verifying...</span>
+                            </div>
+                        ) : (
+                            "Verify & Continue"
+                        )}
                     </Button>
                     <div className="text-center">
                         <Button
                             type="button"
-                            variant="link"
+                            variant="ghost"
                             onClick={handleResend}
                             disabled={isLoading}
-                            className="text-sm"
+                            className="text-sm w-full"
                         >
                             Didn't receive a code? Resend
                         </Button>

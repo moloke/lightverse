@@ -9,6 +9,7 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, CheckCircle } from "lucide-react";
 import Link from "next/link";
 import confetti from "canvas-confetti";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface PracticeInterfaceProps {
     session: any; // Using any for now to avoid complex type imports, but should be typed
@@ -94,20 +95,28 @@ export function PracticeInterface({ session }: PracticeInterfaceProps) {
             </div>
 
             <Card className="p-8 md:p-12 shadow-lg">
-                <div className="mb-8 text-center">
-                    <h2 className="text-2xl font-bold text-primary mb-2">
-                        {session.bible_verses.reference}
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                        {session.bible_verses.translation}
-                    </p>
-                </div>
+                {isUpdating ? (
+                    <div className="flex items-center justify-center py-12">
+                        <LoadingSpinner size="lg" text="Saving progress..." />
+                    </div>
+                ) : (
+                    <>
+                        <div className="mb-8 text-center">
+                            <h2 className="text-2xl font-bold text-primary mb-2">
+                                {session.bible_verses.reference}
+                            </h2>
+                            <p className="text-sm text-muted-foreground">
+                                {session.bible_verses.translation}
+                            </p>
+                        </div>
 
-                <ClozeDisplay
-                    text={session.bible_verses.text}
-                    step={currentStep}
-                    onComplete={handleStepComplete}
-                />
+                        <ClozeDisplay
+                            text={session.bible_verses.text}
+                            step={currentStep}
+                            onComplete={handleStepComplete}
+                        />
+                    </>
+                )}
             </Card>
         </div>
     );

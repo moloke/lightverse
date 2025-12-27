@@ -1,11 +1,56 @@
-import { getVerses } from "@/app/actions/verse-actions";
+"use client";
+
+import { useState, useEffect } from "react";
 import { VerseCard } from "@/components/verses/VerseCard";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { SupportTicketButton } from "@/components/support/SupportTicketButton";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
+import { createClient } from "@/lib/supabase/client";
 
-export default async function VerseLibraryPage() {
-    const verses = await getVerses();
+interface Verse {
+    id: string;
+    reference: string;
+    text: string;
+    translation: string;
+}
+
+export default function VerseLibraryPage() {
+    const [loading, setLoading] = useState(true);
+    const [verses, setVerses] = useState<Verse[]>([]);
+
+    useEffect(() => {
+        loadVerses();
+    }, []);
+
+    const loadVerses = async () => {
+        try {
+            const supabase = createClient();
+            const { data: versesData, error } = await supabase
+                .from("bible_verses")
+                .select("*")
+                .order("created_at", { ascending: true });
+
+            if (error) {
+                console.error("Error fetching verses:", error);
+            } else {
+                setVerses(versesData || []);
+            }
+        } catch (error) {
+            console.error("Error loading verses:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (loading) {
+        return (
+            <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+                <LoadingSpinner size="lg" text="Loading verses..." />
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800 p-4 md:p-8">
@@ -39,6 +84,9 @@ export default async function VerseLibraryPage() {
                     </div>
                 )}
             </div>
+
+            {/* Floating Support Button */}
+            <SupportTicketButton />
         </div>
     );
 }
