@@ -3,6 +3,7 @@ import { VerseCard } from "@/components/verses/VerseCard";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { SupportTicketButton } from "@/components/support/SupportTicketButton";
 
 export default async function VerseLibraryPage() {
     const verses = await getVerses();
@@ -39,6 +40,9 @@ export default async function VerseLibraryPage() {
                     </div>
                 )}
             </div>
+            
+            {/* Floating Support Button */}
+            <SupportTicketButton />
         </div>
     );
 }
