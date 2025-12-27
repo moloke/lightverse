@@ -5,6 +5,7 @@ import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BookOpen, Trophy, Activity } from "lucide-react";
 import { UserMenu } from "@/components/auth/UserMenu";
+import { SupportTicketButton } from "@/components/support/SupportTicketButton";
 
 export default async function DashboardPage() {
     const supabase = await createClient();
@@ -168,6 +169,9 @@ export default async function DashboardPage() {
                     </div>
                 </div>
             </div>
+            
+            {/* Floating Support Button */}
+            <SupportTicketButton />
         </div>
     );
 }

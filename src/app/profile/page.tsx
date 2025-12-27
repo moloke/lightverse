@@ -1,17 +1,18 @@
 import { createClient } from "@/lib/supabase/server"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { 
-  updateProfile, 
-  pauseAccount, 
-  resumeAccount, 
-  disableAccount, 
-  enableAccount 
+import {
+  updateProfile,
+  pauseAccount,
+  resumeAccount,
+  disableAccount,
+  enableAccount
 } from "@/app/actions/profile-actions"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { SupportTicketButton } from "@/components/support/SupportTicketButton"
 
 export default async function ProfilePage() {
   const supabase = await createClient()
@@ -236,6 +237,9 @@ export default async function ProfilePage() {
           </Card>
         </div>
       </div>
+      
+      {/* Floating Support Button */}
+      <SupportTicketButton />
     </div>
   )
 }

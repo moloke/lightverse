@@ -58,17 +58,17 @@ export function PhoneNumberInput({ onSubmit, isLoading = false }: PhoneNumberInp
     };
 
     return (
-        <Card className="w-full max-w-md">
+        <Card className="w-full max-w-md bg-white/90 backdrop-blur-sm border-2 border-indigo-200 shadow-2xl">
             <CardHeader>
-                <CardTitle>Welcome to LightVerse</CardTitle>
-                <CardDescription>
-                    Enter your phone number to get started with Bible verse memorization
+                <CardTitle className="text-2xl font-bold text-gray-900">Get Started Free</CardTitle>
+                <CardDescription className="text-sm text-gray-600">
+                    Enter your phone number to begin your scripture journey
                 </CardDescription>
             </CardHeader>
             <CardContent>
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
-                        <Label htmlFor="phone">Phone Number</Label>
+                        <Label htmlFor="phone" className="text-gray-700">Phone Number</Label>
                         <Input
                             id="phone"
                             type="tel"
@@ -76,16 +76,21 @@ export function PhoneNumberInput({ onSubmit, isLoading = false }: PhoneNumberInp
                             value={phoneNumber}
                             onChange={handleChange}
                             disabled={isLoading}
-                            className={error ? "border-red-500" : ""}
+                            className={`text-center text-lg py-6 ${error ? "border-red-500" : ""}`}
                         />
                         {error && <p className="text-sm text-red-500">{error}</p>}
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-xs text-gray-500">
                             Include your country code (e.g., +1 for US, +44 for UK)
                         </p>
                     </div>
-                    <Button type="submit" className="w-full" disabled={isLoading}>
-                        {isLoading ? "Sending code..." : "Continue"}
+                    <Button
+                        type="submit"
+                        className="w-full text-lg py-6 bg-indigo-600 hover:bg-indigo-700 shadow-lg"
+                        disabled={isLoading}
+                    >
+                        {isLoading ? "Sending code..." : "Send Verification Code"}
                     </Button>
+                    <p className="text-xs text-center text-gray-500">No credit card required</p>
                 </form>
             </CardContent>
         </Card>
