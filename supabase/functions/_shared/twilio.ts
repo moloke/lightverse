@@ -30,7 +30,7 @@ export async function sendSMS(
       body: new URLSearchParams({
         To: to,
         From: config.phoneNumber,
-        Body: body,
+        Body: `LIGHTVERSE: ${body}`,
       }),
     }
   )

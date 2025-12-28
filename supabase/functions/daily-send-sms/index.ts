@@ -96,10 +96,20 @@ serve(async (req) => {
     // Process each session
     for (const session of sessions) {
       try {
+        // Handle users data - can be object or array depending on Supabase version
+        const userData = Array.isArray(session.users)
+          ? session.users[0]
+          : session.users
+        
+        if (!userData) {
+          results.failed++
+          results.errors.push(`Session ${session.id} has no associated user`)
+          continue
+        }
+
         // Check if account is paused
-        const users = session.users[0]
-        if (users.paused_until) {
-          const pausedUntil = new Date(users.paused_until)
+        if (userData.paused_until) {
+          const pausedUntil = new Date(userData.paused_until)
           if (pausedUntil > new Date()) {
             results.skipped++
             continue
@@ -120,8 +130,10 @@ serve(async (req) => {
           }
         }
 
-        // Generate cloze text
-        const bibleVerse = session.bible_verses[0]
+        // Handle bible_verses data - can be object or array
+        const bibleVerse = Array.isArray(session.bible_verses)
+          ? session.bible_verses[0]
+          : session.bible_verses
         const clozeText = generateClozeText(
           bibleVerse.text,
           session.current_step
@@ -137,14 +149,14 @@ Reply with the full verse to continue! 💪`
         // Send SMS
         const result = await sendSMS(
           twilioConfig,
-          users.phone_number,
+          userData.phone_number,
           message
         )
 
         if (!result) {
           results.failed++
           results.errors.push(
-            `Failed to send SMS to ${users.phone_number}`
+            `Failed to send SMS to ${userData.phone_number}`
           )
           continue
         }
@@ -153,7 +165,7 @@ Reply with the full verse to continue! 💪`
         await supabase.from('sms_logs').insert({
           user_id: session.user_id,
           direction: 'outbound',
-          phone_number: session.users[0].phone_number,
+          phone_number: userData.phone_number,
           message: message,
           status: result.status,
           twilio_sid: result.sid,

@@ -22,7 +22,7 @@ export async function sendSMS({ to, message }: SendSMSParams) {
 
     try {
         const result = await twilioClient.messages.create({
-            body: message,
+            body: `LIGHTVERSE: ${message}`,
             from: twilioPhoneNumber,
             to: to,
         });

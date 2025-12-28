@@ -227,8 +227,19 @@ serve(async (req) => {
       )
     }
 
-    // Validate response
-    const bibleVerse = session.bible_verses[0]
+    // Validate response - handle both array and object formats from Supabase
+    const bibleVerse = Array.isArray(session.bible_verses)
+      ? session.bible_verses[0]
+      : session.bible_verses
+    
+    if (!bibleVerse || !bibleVerse.text) {
+      console.error('No bible verse data found for session:', session.id)
+      return new Response(
+        JSON.stringify({ error: 'Session has no associated verse data' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      )
+    }
+    
     const isCorrect = validateResponse(body, bibleVerse.text)
 
     // Log SMS
