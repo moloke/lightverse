@@ -57,7 +57,7 @@ function validateResponse(userResponse: string, expectedText: string): boolean {
 
 // Update progress logic
 async function updateProgress(
-  supabase: any,
+  supabase: ReturnType<typeof createServiceClient>,
   sessionId: string,
   userId: string,
   currentStep: number
@@ -66,7 +66,12 @@ async function updateProgress(
   const isCompleted = nextStep > 7
 
   // Update session
-  const updates: any = {
+  const updates: {
+    current_step: number
+    awaiting_reply: boolean
+    updated_at: string
+    completed_at?: string
+  } = {
     current_step: isCompleted ? 7 : nextStep,
     awaiting_reply: false,
     updated_at: new Date().toISOString(),
@@ -223,7 +228,8 @@ serve(async (req) => {
     }
 
     // Validate response
-    const isCorrect = validateResponse(body, session.bible_verses.text)
+    const bibleVerse = session.bible_verses[0]
+    const isCorrect = validateResponse(body, bibleVerse.text)
 
     // Log SMS
     await supabase.from('sms_logs').insert({
@@ -247,19 +253,19 @@ serve(async (req) => {
       // Send success message
       let responseMsg = ''
       if (result.isCompleted) {
-        responseMsg = `🎉 Congratulations! You've memorized ${session.bible_verses.reference}! +${result.xpGain} XP
+        responseMsg = `🎉 Congratulations! You've memorized ${bibleVerse.reference}! +${result.xpGain} XP
 
 Visit lightverse.app to choose your next verse! 🙏`
       } else {
         responseMsg = `✅ Correct! +${result.xpGain} XP
 
-You're on step ${result.nextStep}/7 of ${session.bible_verses.reference}. Keep going! 💪`
+You're on step ${result.nextStep}/7 of ${bibleVerse.reference}. Keep going! 💪`
       }
 
       await sendSMS(twilioConfig, from, responseMsg)
     } else {
       // Send encouragement
-      const hint = session.bible_verses.text
+      const hint = bibleVerse.text
         .split(/\s+/)
         .slice(0, 5)
         .join(' ')
@@ -268,7 +274,7 @@ You're on step ${result.nextStep}/7 of ${session.bible_verses.reference}. Keep g
 
 Hint: "${hint}..."
 
-Reply with the full verse for ${session.bible_verses.reference}`
+Reply with the full verse for ${bibleVerse.reference}`
 
       await sendSMS(twilioConfig, from, responseMsg)
     }
@@ -283,7 +289,7 @@ Reply with the full verse for ${session.bible_verses.reference}`
   } catch (error) {
     console.error('Error in receive-sms-webhook:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,

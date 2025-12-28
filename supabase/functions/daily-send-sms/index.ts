@@ -97,8 +97,9 @@ serve(async (req) => {
     for (const session of sessions) {
       try {
         // Check if account is paused
-        if (session.users.paused_until) {
-          const pausedUntil = new Date(session.users.paused_until)
+        const users = session.users[0]
+        if (users.paused_until) {
+          const pausedUntil = new Date(users.paused_until)
           if (pausedUntil > new Date()) {
             results.skipped++
             continue
@@ -120,13 +121,14 @@ serve(async (req) => {
         }
 
         // Generate cloze text
+        const bibleVerse = session.bible_verses[0]
         const clozeText = generateClozeText(
-          session.bible_verses.text,
+          bibleVerse.text,
           session.current_step
         )
 
         // Create SMS message
-        const message = `📖 ${session.bible_verses.reference} - Step ${session.current_step}/${session.total_steps}
+        const message = `📖 ${bibleVerse.reference} - Step ${session.current_step}/${session.total_steps}
 
 ${clozeText}
 
@@ -135,14 +137,14 @@ Reply with the full verse to continue! 💪`
         // Send SMS
         const result = await sendSMS(
           twilioConfig,
-          session.users.phone_number,
+          users.phone_number,
           message
         )
 
         if (!result) {
           results.failed++
           results.errors.push(
-            `Failed to send SMS to ${session.users.phone_number}`
+            `Failed to send SMS to ${users.phone_number}`
           )
           continue
         }
@@ -151,7 +153,7 @@ Reply with the full verse to continue! 💪`
         await supabase.from('sms_logs').insert({
           user_id: session.user_id,
           direction: 'outbound',
-          phone_number: session.users.phone_number,
+          phone_number: session.users[0].phone_number,
           message: message,
           status: result.status,
           twilio_sid: result.sid,
@@ -170,7 +172,7 @@ Reply with the full verse to continue! 💪`
       } catch (error) {
         results.failed++
         results.errors.push(
-          `Error processing session ${session.id}: ${error.message}`
+          `Error processing session ${session.id}: ${error instanceof Error ? error.message : String(error)}`
         )
       }
     }
@@ -188,7 +190,7 @@ Reply with the full verse to continue! 💪`
   } catch (error) {
     console.error('Error in daily-send-sms:', error)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500,
