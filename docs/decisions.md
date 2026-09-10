@@ -139,3 +139,26 @@ with no rule for which won. The original objection — that an in-repo ticket si
 context window as the code, at no API cost — is real but cheap to pay: `gh issue view <n>` is one
 command. **Consequence:** the ticket body shape is unchanged, so nothing is lost but the file
 location. Tracker config is in [`agents/issue-tracker.md`](agents/issue-tracker.md).
+
+### 2026-09-10 · `docs/_legacy/` is a local-only archive, not repo content
+
+The 11 stale documents the readiness plan (§3.7 phase 0) told us to delete were **moved** to
+`docs/_legacy/` and gitignored (`.gitignore:52`) rather than deleted outright — a safety net while
+`architecture.md`, `runbook.md`, `v1-brief.md` and this file were being written from them.
+
+**Never track it.** Two reasons. It holds a live-shaped anon JWT and the production project ref
+(now redacted locally), and those have never been committed — 22 commits scanned, all file types,
+clean. That property is worth keeping. And its contents *contradict* the current docs rather than
+merely duplicating them: `task.md` shows the edge functions unbuilt, `DEPLOYMENT_GUIDE.md`
+instructs creating migration `006` which is already the profile-fields migration. Committing it
+would re-arm M-2 — false premises an agent will act on (`CLAUDE.md` rule 7).
+
+**Rule 6 is satisfied, not bent:** no surviving knowledge lives only in `_legacy`. Everything it
+had is in the docs above. Entries and docs may mention it for provenance, but nothing should
+*depend* on it — treat any `docs/_legacy/...` path as unreadable.
+
+**Trigger to delete:** once issues
+[#10](https://github.com/moloke/lightverse/issues/10)-[#15](https://github.com/moloke/lightverse/issues/15)
+have landed and nothing further is needed from it, `rm -rf docs/_legacy/`. A local scratch archive
+is legitimate, but it has a shelf life. *(supplements "The domain is lightverse.org" above, which
+cites the directory for provenance; see also [`engineering/security.md`](engineering/security.md) §3)*
