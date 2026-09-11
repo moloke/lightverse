@@ -47,3 +47,6 @@ supabase/.temp
 # documentation
 SETUP_GUIDE.md
 push-to-github.sh
+
+# harvested legacy docs — preserved locally, never tracked
+docs/_legacy/

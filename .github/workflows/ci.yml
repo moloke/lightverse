@@ -1,0 +1,69 @@
+# CI — the quality gate for every PR.
+#
+# HEADS UP: this workflow is expected to FAIL until issue #10 is done.
+# Today `package.json` defines only `lint` (and `next lint` cannot run headless, because no ESLint
+# config exists); `typecheck`, `test` and `check:edge` do not exist yet. Ticket 000 is the
+# unblocker. The workflow is committed first, deliberately, so the target is visible and the work
+# is finished when this goes green.
+#
+# This pipeline does NOT deploy anything. Vercel deploys the web app on its own; edge functions,
+# migrations and the cron schedule are human-run. See docs/runbook.md.
+
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A new push to the same branch cancels the run already in flight.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: lint · typecheck · test · check:edge · build
+    runs-on: ubuntu-latest
+
+    env:
+      # Pinned so the date-handling tests are deterministic. Production (Supabase Edge and Vercel)
+      # runs UTC, and the already-sent-today comparison in daily-send-sms reads runtime-local
+      # time — this is what stops a test passing by accident on a differently-configured runner.
+      TZ: UTC
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc # 20.19.5
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # Cheapest first, so a PR fails fast.
+      - name: Lint
+        run: npm run lint
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Test
+        run: npm test
+
+      - name: Set up Deno
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      # The root tsconfig excludes supabase/functions, so this is the only thing that
+      # typechecks the edge functions at all.
+      - name: Typecheck edge functions
+        run: npm run check:edge
+
+      # Last: Vercel will build anyway, but a PR should fail before it gets a preview deploy.
+      - name: Build
+        run: npm run build
