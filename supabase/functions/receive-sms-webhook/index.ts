@@ -2,7 +2,10 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createServiceClient } from '../_shared/supabase.ts'
 import { getTwilioConfig, sendSMS } from '../_shared/twilio.ts'
 import { corsHeaders } from '../_shared/cors.ts'
-import { isValidTwilioSignature } from '../_shared/core/twilio-signature.ts'
+import {
+  candidateSignatureUrls,
+  isValidTwilioSignatureForAnyUrl,
+} from '../_shared/core/twilio-signature.ts'
 
 // Helper to return an empty TwiML response (Twilio expects XML, not JSON)
 function twimlResponse(status = 200): Response {
@@ -179,12 +182,19 @@ serve(async (req) => {
     // This function is deployed --no-verify-jwt because Twilio sends no JWT, which is exactly why
     // this check has to exist (gap S-1). Do not remove either half of that pairing.
     //
-    // req.url is the URL as Twilio called it, which is what Twilio signed. If this function ever
-    // sits behind a redirect, or the scheme/host differs from the Twilio console's webhook
-    // setting, legitimate requests will fail here. See docs/runbook.md.
-    const signatureValid = await isValidTwilioSignature(
+    // Verify against the PUBLIC url, not req.url. Behind Supabase's edge proxy req.url is
+    // `http://<ref>.supabase.co/receive-sms-webhook` — TLS terminates upstream and the
+    // `/functions/v1` prefix is stripped — while Twilio signs the console URL, which has both.
+    // Comparing against req.url rejected every genuine request in production. See
+    // docs/runbook.md and the candidate list in _shared/core/twilio-signature.ts.
+    const signatureValid = await isValidTwilioSignatureForAnyUrl(
       twilioConfig.authToken,
-      req.url,
+      candidateSignatureUrls({
+        requestUrl: req.url,
+        hostHeader: req.headers.get('host'),
+        forwardedProto: req.headers.get('x-forwarded-proto'),
+        configuredUrl: twilioConfig.webhookUrl,
+      }),
       params,
       req.headers.get('X-Twilio-Signature'),
     )

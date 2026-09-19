@@ -82,6 +82,7 @@ Deno is not installed by default on this machine; install it locally if you want
 npx supabase secrets set TWILIO_ACCOUNT_SID=<TWILIO_ACCOUNT_SID>
 npx supabase secrets set TWILIO_AUTH_TOKEN=<TWILIO_AUTH_TOKEN>
 npx supabase secrets set TWILIO_PHONE_NUMBER=<TWILIO_PHONE_NUMBER>
+npx supabase secrets set TWILIO_WEBHOOK_URL=<TWILIO_WEBHOOK_URL>   # the exact Twilio console URL
 npx supabase secrets list
 ```
 
@@ -148,18 +149,36 @@ Twilio Console → Phone Numbers → Manage → Active numbers → your number �
 This binding exists only in the Twilio console. If it is wrong or missing, inbound replies vanish
 silently — no error surfaces anywhere in this repo.
 
-### The URL must match exactly — signature verification depends on it
+### The URL is part of the signature — and `req.url` is NOT it
 
-Twilio computes the request signature over **the URL as it called it**, so the value configured
-above is part of the HMAC input. If it differs from what the function actually receives — a
-`http://` vs `https://` mismatch, a trailing slash, a different host, any redirect in front of the
-function, or an added query parameter — the digest will not match and **legitimate inbound replies
-will be rejected with a 403**.
+Twilio signs **the URL it called**, i.e. the value configured above. Behind Supabase's edge proxy
+the function sees something different:
 
-Symptom: users text in, nothing happens, and the function logs
-`Rejected inbound request with an invalid or missing Twilio signature`. If you see that for real
-traffic, compare this console URL against `req.url` in the function logs before suspecting the
-code.
+| | |
+|---|---|
+| What Twilio signs (console URL) | `https://<PROJECT_REF>.supabase.co/functions/v1/receive-sms-webhook` |
+| What `req.url` reports | `http://<PROJECT_REF>.supabase.co/receive-sms-webhook` |
+
+Two differences, both upstream of the function: **TLS is terminated at the proxy**, so the scheme
+is `http`; and the **`/functions/v1` prefix is stripped**. Verifying against `req.url` therefore
+rejects *every* genuine request.
+
+This is not hypothetical — it took inbound replies down on **2026-09-19** (Twilio error 11200 on
+every message, users texting in to silence). `_shared/core/twilio-signature.ts` now checks the
+signature against a small set of candidate URLs, and **`TWILIO_WEBHOOK_URL` should be set to the
+exact console value** so the correct one is tried first:
+
+```bash
+npx supabase secrets set TWILIO_WEBHOOK_URL=https://<PROJECT_REF>.supabase.co/functions/v1/receive-sms-webhook
+```
+
+**If you change the webhook URL in the Twilio console, change this secret too.** They are one
+setting in two places.
+
+Symptom of a mismatch: users text in, nothing happens, Twilio's console shows **error 11200
+(HTTP retrieval failure)** on the inbound message, and the function logs
+`Rejected inbound request with an invalid or missing Twilio signature`. Diagnose by comparing the
+console URL against the candidates the function builds — not by assuming the code is wrong.
 
 The function is deployed `--no-verify-jwt` because Twilio sends no JWT. That flag is *why* the
 signature check is mandatory: it is the only thing authenticating this endpoint. Never remove
