@@ -2,6 +2,12 @@ export interface TwilioConfig {
   accountSid: string
   authToken: string
   phoneNumber: string
+  /**
+   * The webhook URL exactly as configured in the Twilio console. Optional, but strongly
+   * recommended: it is the URL Twilio signs, and `req.url` behind Supabase's proxy is not it.
+   * See docs/runbook.md and _shared/core/twilio-signature.ts.
+   */
+  webhookUrl: string
 }
 
 export function getTwilioConfig(): TwilioConfig {
@@ -9,6 +15,7 @@ export function getTwilioConfig(): TwilioConfig {
     accountSid: Deno.env.get('TWILIO_ACCOUNT_SID') ?? '',
     authToken: Deno.env.get('TWILIO_AUTH_TOKEN') ?? '',
     phoneNumber: Deno.env.get('TWILIO_PHONE_NUMBER') ?? '',
+    webhookUrl: Deno.env.get('TWILIO_WEBHOOK_URL') ?? '',
   }
 }
 

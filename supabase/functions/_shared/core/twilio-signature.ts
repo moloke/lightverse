@@ -107,3 +107,83 @@ export async function isValidTwilioSignature(
   const expected = await computeSignature(authToken, url, params)
   return constantTimeEqual(expected, headerSignature)
 }
+
+/**
+ * Every URL string the request might legitimately have been signed as.
+ *
+ * **This exists because `req.url` is not the URL Twilio signed.** Behind Supabase's edge proxy the
+ * function sees `http://<ref>.supabase.co/receive-sms-webhook` — TLS is terminated upstream, so the
+ * scheme is `http`, and the public `/functions/v1` prefix is stripped before the request arrives.
+ * Twilio signs the URL configured in its console, which has both. Comparing against `req.url`
+ * therefore rejects *every* genuine request, which is precisely what happened in production on
+ * 2026-09-19 (Twilio error 11200 on every inbound message).
+ *
+ * The fix is to verify against the public URL. `configuredUrl` — the exact string from the Twilio
+ * console — is the deterministic answer and is tried first. The reconstructed variants are a
+ * fallback so that a missing or stale config cannot take inbound replies offline again.
+ *
+ * **This does not weaken the check.** Every candidate still has to produce a matching HMAC under
+ * the account auth token, which an attacker does not have. The URL binds a signature to an
+ * endpoint; it is not itself the secret.
+ */
+export function candidateSignatureUrls(input: {
+  requestUrl: string
+  hostHeader?: string | null
+  forwardedProto?: string | null
+  configuredUrl?: string | null
+}): string[] {
+  const { requestUrl, hostHeader, forwardedProto, configuredUrl } = input
+  const candidates: string[] = []
+
+  // The operator told us exactly what Twilio calls. Trust it first, and the common case costs a
+  // single HMAC.
+  if (configuredUrl) candidates.push(configuredUrl)
+
+  let parsed: URL
+  try {
+    parsed = new URL(requestUrl)
+  } catch {
+    return dedupe(candidates)
+  }
+
+  const schemes = [forwardedProto ? `${forwardedProto}:` : null, 'https:', parsed.protocol]
+  const hosts = [hostHeader, parsed.host]
+  // Supabase strips the public prefix; put it back as one of the options.
+  const paths = [parsed.pathname, `/functions/v1${parsed.pathname}`]
+
+  for (const scheme of schemes) {
+    if (!scheme) continue
+    for (const host of hosts) {
+      if (!host) continue
+      for (const path of paths) {
+        candidates.push(`${scheme}//${host}${path}${parsed.search}`)
+      }
+    }
+  }
+
+  return dedupe(candidates)
+}
+
+function dedupe(values: string[]): string[] {
+  return [...new Set(values)]
+}
+
+/**
+ * Whether the signature is authentic for **any** of the candidate URLs.
+ *
+ * Returns false for an empty token or a missing header, exactly as the single-URL check does.
+ */
+export async function isValidTwilioSignatureForAnyUrl(
+  authToken: string,
+  urls: string[],
+  params: Record<string, string>,
+  headerSignature: string | null,
+): Promise<boolean> {
+  if (!authToken) return false
+  if (!headerSignature) return false
+
+  for (const url of urls) {
+    if (await isValidTwilioSignature(authToken, url, params, headerSignature)) return true
+  }
+  return false
+}

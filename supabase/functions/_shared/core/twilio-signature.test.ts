@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
   buildSignatureBase,
+  candidateSignatureUrls,
   computeSignature,
   constantTimeEqual,
   isValidTwilioSignature,
+  isValidTwilioSignatureForAnyUrl,
 } from './twilio-signature.ts'
 
 /**
@@ -151,6 +153,149 @@ describe('isValidTwilioSignature', () => {
     const sigForTampered = await computeSignature(TOKEN, URL_WITH_QUERY, tampered)
     await expect(
       isValidTwilioSignature(TOKEN, URL_WITH_QUERY, PARAMS, sigForTampered),
+    ).resolves.toBe(false)
+  })
+})
+
+/**
+ * Regression tests for the 2026-09-19 production incident.
+ *
+ * The first version of this module verified against `req.url`. Behind Supabase's edge proxy that
+ * is `http://<ref>.supabase.co/receive-sms-webhook` — no TLS (terminated upstream), no
+ * `/functions/v1` prefix (stripped upstream) — while Twilio signs the console URL, which has both.
+ * Every genuine inbound message was rejected with a 403, surfacing as Twilio error 11200. Users
+ * texted in and got silence.
+ *
+ * The shapes below are not invented: they were measured against the deployed function by probing
+ * it with signatures computed over each candidate until one was accepted.
+ */
+const PUBLIC_URL = 'https://abcdefghijklmnop.supabase.co/functions/v1/receive-sms-webhook'
+const PROXY_SEEN_URL = 'http://abcdefghijklmnop.supabase.co/receive-sms-webhook'
+const PROXY_HOST = 'abcdefghijklmnop.supabase.co'
+
+describe('candidateSignatureUrls', () => {
+  it('includes the public URL when reconstructing from what the proxy actually passes through', () => {
+    const candidates = candidateSignatureUrls({
+      requestUrl: PROXY_SEEN_URL,
+      hostHeader: PROXY_HOST,
+      forwardedProto: 'https',
+    })
+    expect(candidates).toContain(PUBLIC_URL)
+  })
+
+  it('puts an explicitly configured URL first, so the common case costs one HMAC', () => {
+    const candidates = candidateSignatureUrls({
+      requestUrl: PROXY_SEEN_URL,
+      hostHeader: PROXY_HOST,
+      configuredUrl: PUBLIC_URL,
+    })
+    expect(candidates[0]).toBe(PUBLIC_URL)
+  })
+
+  it('still includes the URL the function actually saw', () => {
+    expect(
+      candidateSignatureUrls({ requestUrl: PROXY_SEEN_URL, hostHeader: PROXY_HOST }),
+    ).toContain(PROXY_SEEN_URL)
+  })
+
+  it('preserves a query string, which Twilio signs', () => {
+    const candidates = candidateSignatureUrls({
+      requestUrl: 'http://host.example/receive-sms-webhook?a=1',
+      hostHeader: 'host.example',
+    })
+    expect(candidates.every((c) => c.includes('?a=1'))).toBe(true)
+  })
+
+  it('returns no duplicates', () => {
+    const candidates = candidateSignatureUrls({
+      requestUrl: PROXY_SEEN_URL,
+      hostHeader: PROXY_HOST,
+      configuredUrl: PROXY_SEEN_URL,
+    })
+    expect(new Set(candidates).size).toBe(candidates.length)
+  })
+
+  it('degrades to the configured URL alone if requestUrl is unparseable', () => {
+    expect(
+      candidateSignatureUrls({ requestUrl: 'not a url', configuredUrl: PUBLIC_URL }),
+    ).toEqual([PUBLIC_URL])
+  })
+})
+
+describe('isValidTwilioSignatureForAnyUrl — the production scenario', () => {
+  // THE test. Twilio signs the public URL; the function is handed the proxied one. Before the
+  // fix this returned false, and every real user got silence.
+  it('accepts a request Twilio signed with the public URL while the proxy shows a different one', async () => {
+    const signature = await computeSignature(TOKEN, PUBLIC_URL, PARAMS)
+
+    const candidates = candidateSignatureUrls({
+      requestUrl: PROXY_SEEN_URL,
+      hostHeader: PROXY_HOST,
+      forwardedProto: 'https',
+    })
+
+    await expect(
+      isValidTwilioSignatureForAnyUrl(TOKEN, candidates, PARAMS, signature),
+    ).resolves.toBe(true)
+  })
+
+  it('works via the configured URL even with no usable proxy headers', async () => {
+    const signature = await computeSignature(TOKEN, PUBLIC_URL, PARAMS)
+    const candidates = candidateSignatureUrls({
+      requestUrl: PROXY_SEEN_URL,
+      configuredUrl: PUBLIC_URL,
+    })
+    await expect(
+      isValidTwilioSignatureForAnyUrl(TOKEN, candidates, PARAMS, signature),
+    ).resolves.toBe(true)
+  })
+
+  // Widening the URL set must not widen what a forger can do: the token is still required.
+  it('still rejects a forged signature across every candidate', async () => {
+    const candidates = candidateSignatureUrls({
+      requestUrl: PROXY_SEEN_URL,
+      hostHeader: PROXY_HOST,
+      configuredUrl: PUBLIC_URL,
+    })
+    await expect(
+      isValidTwilioSignatureForAnyUrl(TOKEN, candidates, PARAMS, 'AAAAf1cFY/Q7PnoempGyD5oXAezc='),
+    ).resolves.toBe(false)
+  })
+
+  it('still rejects a signature made with the wrong auth token', async () => {
+    const wrongToken = await computeSignature('54321', PUBLIC_URL, PARAMS)
+    const candidates = candidateSignatureUrls({
+      requestUrl: PROXY_SEEN_URL,
+      hostHeader: PROXY_HOST,
+      configuredUrl: PUBLIC_URL,
+    })
+    await expect(
+      isValidTwilioSignatureForAnyUrl(TOKEN, candidates, PARAMS, wrongToken),
+    ).resolves.toBe(false)
+  })
+
+  it('still rejects when the body was tampered with after signing', async () => {
+    const signature = await computeSignature(TOKEN, PUBLIC_URL, PARAMS)
+    const candidates = candidateSignatureUrls({
+      requestUrl: PROXY_SEEN_URL,
+      hostHeader: PROXY_HOST,
+      configuredUrl: PUBLIC_URL,
+    })
+    await expect(
+      isValidTwilioSignatureForAnyUrl(TOKEN, candidates, { ...PARAMS, Digits: '9999' }, signature),
+    ).resolves.toBe(false)
+  })
+
+  it('still rejects everything when the auth token is empty', async () => {
+    const signature = await computeSignature(TOKEN, PUBLIC_URL, PARAMS)
+    await expect(
+      isValidTwilioSignatureForAnyUrl('', [PUBLIC_URL], PARAMS, signature),
+    ).resolves.toBe(false)
+  })
+
+  it('still rejects a missing signature header', async () => {
+    await expect(
+      isValidTwilioSignatureForAnyUrl(TOKEN, [PUBLIC_URL], PARAMS, null),
     ).resolves.toBe(false)
   })
 })
