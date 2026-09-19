@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createServiceClient } from '../_shared/supabase.ts'
 import { getTwilioConfig, sendSMS } from '../_shared/twilio.ts'
 import { corsHeaders } from '../_shared/cors.ts'
+import { isValidTwilioSignature } from '../_shared/core/twilio-signature.ts'
 
 // Helper to return an empty TwiML response (Twilio expects XML, not JSON)
 function twimlResponse(status = 200): Response {
@@ -161,14 +162,46 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createServiceClient()
     const twilioConfig = getTwilioConfig()
 
-    // Parse Twilio webhook data
+    // Parse the form body. Needed before verification, because the POST parameters are part of
+    // what Twilio signs.
     const formData = await req.formData()
-    const from = formData.get('From') as string
-    const body = formData.get('Body') as string
-    const messageSid = formData.get('MessageSid') as string
+    const params: Record<string, string> = {}
+    for (const [key, value] of formData.entries()) {
+      if (typeof value === 'string') params[key] = value
+    }
+
+    // ── Authentication gate ──────────────────────────────────────────────────────────────────
+    // Nothing above this line touches the database or sends anything. Nothing below it runs for
+    // an unauthenticated request.
+    //
+    // This function is deployed --no-verify-jwt because Twilio sends no JWT, which is exactly why
+    // this check has to exist (gap S-1). Do not remove either half of that pairing.
+    //
+    // req.url is the URL as Twilio called it, which is what Twilio signed. If this function ever
+    // sits behind a redirect, or the scheme/host differs from the Twilio console's webhook
+    // setting, legitimate requests will fail here. See docs/runbook.md.
+    const signatureValid = await isValidTwilioSignature(
+      twilioConfig.authToken,
+      req.url,
+      params,
+      req.headers.get('X-Twilio-Signature'),
+    )
+
+    if (!signatureValid) {
+      // Deliberately silent: no SMS, no database write, no detail in the response. An
+      // unauthenticated caller learns nothing and costs nothing.
+      console.warn('Rejected inbound request with an invalid or missing Twilio signature')
+      return twimlResponse(403)
+    }
+    // ─────────────────────────────────────────────────────────────────────────────────────────
+
+    const supabase = createServiceClient()
+
+    const from = params.From
+    const body = params.Body
+    const messageSid = params.MessageSid
 
     console.log('Received SMS from:', from, 'Body:', body)
 
@@ -180,7 +213,13 @@ serve(async (req) => {
       .single()
 
     if (userError || !user) {
-      // Log unknown sender
+      // Log it, but send nothing back.
+      //
+      // This used to reply "Sorry, we couldn't find your account…" to whatever number appeared in
+      // `From`. Combined with an unauthenticated endpoint that made the webhook an open SMS relay:
+      // one POST, one paid message to any number on earth. The signature check above closes the
+      // unauthenticated half; dropping the reply closes the reflector itself, so a request that
+      // is signed but carries an unknown sender still costs nothing.
       await supabase.from('sms_logs').insert({
         direction: 'inbound',
         phone_number: from,
@@ -188,13 +227,6 @@ serve(async (req) => {
         status: 'unknown_user',
         twilio_sid: messageSid,
       })
-
-      // Send response
-      await sendSMS(
-        twilioConfig,
-        from,
-        "Sorry, we couldn't find your account. Please sign up at lightverse.org first!"
-      )
 
       return twimlResponse()
     }
