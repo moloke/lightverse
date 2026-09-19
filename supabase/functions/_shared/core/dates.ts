@@ -59,3 +59,28 @@ export function dayKey(date: Date, timeZone: string = UK_TIME_ZONE): string {
 export function isSameDay(a: Date, b: Date, timeZone: string = UK_TIME_ZONE): boolean {
   return dayKey(a, timeZone) === dayKey(b, timeZone)
 }
+
+/**
+ * The calendar day before a given `YYYY-MM-DD` key.
+ *
+ * Pure calendar arithmetic on the key itself — it deliberately does *not* take a timezone. The key
+ * has already been resolved to a calendar date by `dayKey`; "the day before 2026-03-29" is the same
+ * answer everywhere. Computing it with UTC arithmetic avoids the classic bug where subtracting 24
+ * hours across a DST boundary lands on the same day or skips one.
+ *
+ * @throws RangeError if the key is not a valid `YYYY-MM-DD` date.
+ */
+export function previousDayKey(key: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(key)
+  if (!match) throw new RangeError(`previousDayKey expected YYYY-MM-DD, received ${key}`)
+
+  const [, year, month, day] = match
+  const asUtc = Date.UTC(Number(year), Number(month) - 1, Number(day))
+  const previous = new Date(asUtc - 24 * 60 * 60 * 1000)
+
+  if (Number.isNaN(previous.getTime())) {
+    throw new RangeError(`previousDayKey received an invalid date: ${key}`)
+  }
+
+  return dayKey(previous, 'UTC')
+}

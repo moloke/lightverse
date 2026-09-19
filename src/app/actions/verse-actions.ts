@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
+import { nextStreak, streakWritePayload } from "@core/streaks.ts";
 import { redirect } from "next/navigation";
 
 export async function getVerses() {
@@ -139,51 +140,46 @@ export async function updateProgress(sessionId: string, currentStep: number) {
         .eq("id", user.id);
 
     // Streak Logic
+    //
+    // This wrote to a `streaks.date` column that migration 009 dropped, on both the update and the
+    // insert path, and bound the resulting error to an unused variable. Practising on the web
+    // therefore built no streak at all, silently (gap C-1). The decision now lives in
+    // `_shared/core/streaks.ts` so it is testable and shared rather than restated per runtime.
     const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
 
     const { data: streakData } = await supabase
         .from("streaks")
-        .select("*")
+        .select("current_streak, last_activity_date")
         .eq("user_id", user.id)
         .single();
 
-    if (streakData) {
-        const lastActivity = (streakData.date || streakData.last_activity_date).split('T')[0];
+    const decision = nextStreak({
+        lastActivityDate: streakData?.last_activity_date,
+        todayKey: today,
+        currentStreak: streakData?.current_streak,
+    });
 
-        if (lastActivity !== today) {
-            // Check if it's consecutive (yesterday)
-            const yesterday = new Date();
-            yesterday.setDate(yesterday.getDate() - 1);
-            const yesterdayStr = yesterday.toISOString().split('T')[0];
-
-            let newStreak = streakData.current_streak;
-            if (lastActivity === yesterdayStr) {
-                newStreak += 1;
-            } else {
-                newStreak = 1; // Reset if missed a day
-            }
-
-            const { error: updateError } = await supabase
+    if (decision.shouldWrite) {
+        const { error: streakError } = streakData
+            ? await supabase
                 .from("streaks")
-                .update({
-                    current_streak: newStreak,
-                    date: new Date().toISOString()
-                })
-                .eq("user_id", user.id);
+                .update(streakWritePayload(decision, today))
+                .eq("user_id", user.id)
+            : await supabase
+                .from("streaks")
+                .insert({
+                    user_id: user.id,
+                    ...streakWritePayload(decision, today),
+                });
 
-            // Error updating streak
-        }
-    } else {
-        // Create first streak record
-        const { error: insertError } = await supabase
-            .from("streaks")
-            .insert({
-                user_id: user.id,
-                current_streak: 1,
-                date: new Date().toISOString()
+        // Log rather than throw: a streak write failing must not discard the practice the user
+        // just completed. Silence here is what hid this bug for months.
+        if (streakError) {
+            console.error("Failed to write streak", {
+                userId: user.id,
+                error: streakError.message,
             });
-
-        // Error creating streak
+        }
     }
 
     revalidatePath(`/practice/${sessionId}`);
