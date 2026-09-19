@@ -218,3 +218,27 @@ stop being manual.
 `sms_logs` has no row for it at all — a rejected request returns before any database write. That
 pair distinguishes "rejected at the gate" from "accepted but no reply", which are different bugs.
 See [`runbook.md`](runbook.md).
+
+### 2026-09-19 · Every merged change bumps the version; `package.json` is the only source of truth
+
+The version is primarily a **signal to users** that the product is being worked on — small print at
+the bottom of every page — not developer bookkeeping. Secondarily it says what is live without
+reading git.
+
+**The rules**, with every ambiguity settled by one question — *does a user gain a new capability?*
+**MAJOR** breaks the user-facing contract (SMS reply protocol, ladder semantics, pricing, the
+meaning of existing rows), and `1.0.0` is reserved for public launch. **MINOR** is a new
+user-visible capability. **PATCH** is everything else, and a bug fix is always a patch however
+severe. Default from commit types: `feat` → minor, everything else → patch, with the user-visible
+test overriding the mapping. **When torn, choose the smaller bump** — under-claiming is
+recoverable, over-claiming is permanent.
+
+Full rules in [`workflow/versioning.md`](workflow/versioning.md); `npm run check:version` gates it.
+
+**Rejected:** `semantic-release` and generated changelogs. The readiness plan §3.8 excluded
+changelog automation as solo-developer overhead and this does not reverse that — a manual bump
+forces the question "what did this actually change for a user?", which is the entire value.
+**Also rejected:** having CI verify the bump *size* against commit types. It needs a reliable
+merge-base across rebases and squashes, and a false failure blocks every PR; the judgement stays
+with the author. **Consequence:** two open PRs will conflict on `package.json`. Accepted as the
+price of a version that always means something.

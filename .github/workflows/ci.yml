@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   check:
-    name: lint · typecheck · test · check:edge · build
+    name: version · lint · typecheck · test · check:edge · build
     runs-on: ubuntu-latest
 
     env:
@@ -28,6 +28,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          # check:version reads package.json from the base branch; the default shallow clone
+          # cannot see it. Cheap on a repo this size.
+          fetch-depth: 0
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -39,6 +43,9 @@ jobs:
         run: npm ci
 
       # Cheapest first, so a PR fails fast.
+      - name: Version
+        run: npm run check:version
+
       - name: Lint
         run: npm run lint
 
