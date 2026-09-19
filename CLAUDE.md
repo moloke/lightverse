@@ -24,16 +24,19 @@ and ask.
 
 ## Commands
 
-Exist today:
-- `npm run dev` — local dev server
-- `npm run build` — production build (what Vercel gates on)
-- `npm run lint` — **currently non-functional**: no ESLint config exists yet, so this drops into
-  interactive setup and can't run headless. Wiring it is ticket zero.
+All five run in CI on every PR, in this order (cheapest first, so a PR fails fast):
 
-Added during setup (Phase 1 — do not assume these exist until they're wired):
-- `npm run typecheck` → `tsc --noEmit` (passes clean today, with dependencies installed)
-- `npm test` → Vitest, the shared-core suite
-- `npm run check:edge` → `deno check supabase/functions/**/*.ts`
+- `npm run lint` → `eslint .` (flat config, ESLint 9). Currently reports 13 warnings and 0 errors;
+  `react/no-unescaped-entities` is deliberately downgraded to a warning — see `eslint.config.mjs`.
+- `npm run typecheck` → `tsc --noEmit`
+- `npm test` → `vitest run`, the shared-core suite (`npm run test:watch` while working)
+- `npm run check:edge` → `deno check` over `supabase/functions`, the only thing that typechecks the
+  edge functions at all — the root `tsconfig.json` excludes them
+- `npm run build` → production build (what Vercel gates on)
+
+Plus `npm run dev` for a local dev server.
+
+**Requires Node 20.19.5 (`nvm use`) and Deno** — `check:edge` cannot run without Deno installed.
 
 ## Repo map
 
