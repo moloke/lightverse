@@ -162,3 +162,26 @@ had is in the docs above. Entries and docs may mention it for provenance, but no
 have landed and nothing further is needed from it, `rm -rf docs/_legacy/`. A local scratch archive
 is legitimate, but it has a shelf life. *(supplements "The domain is lightverse.org" above, which
 cites the directory for provenance; see also [`engineering/security.md`](engineering/security.md) §3)*
+
+### 2026-09-19 · Shared-core imports use `.ts` extensions; the web side will need `allowImportingTsExtensions`
+
+The spike flagged in [`engineering/testing.md`](engineering/testing.md), run as part of issue #10.
+
+**The conflict is real.** Deno *requires* an explicit `.ts` extension on relative imports; TypeScript
+*rejects* one by default (`TS5097: An import path can only end with a '.ts' extension when
+'allowImportingTsExtensions' is enabled`). A module in `_shared/core/` imported by both runtimes
+cannot satisfy both with one import specifier.
+
+**Resolution, verified rather than assumed:** set `"allowImportingTsExtensions": true` in
+`tsconfig.json`. It requires `noEmit: true`, which this project already sets, so it costs nothing.
+With the flag on, `import { dayKey } from '../supabase/functions/_shared/core/dates.ts'`
+typechecks clean; without it, that exact import is an error. Both were run.
+
+**Not applied yet, deliberately.** Nothing in `src/` imports the shared core today, so adding the
+flag now would be a change with no consumer. It lands with the first web-side import — #13 (cloze
+consolidation) or #14 (`dayKey` adoption), whichever comes first. **Rejected:** dropping the
+extension and configuring Deno to tolerate it (fights the runtime's defaults), and a build step
+that rewrites specifiers (a compile step for four pure functions).
+
+**Consequence:** inside `supabase/functions/`, always write the `.ts` extension — that is the form
+that works in both places once the flag is set. `_shared/core/dates.test.ts` already does.

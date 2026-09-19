@@ -1,11 +1,5 @@
 # CI — the quality gate for every PR.
 #
-# HEADS UP: this workflow is expected to FAIL until issue #10 is done.
-# Today `package.json` defines only `lint` (and `next lint` cannot run headless, because no ESLint
-# config exists); `typecheck`, `test` and `check:edge` do not exist yet. Ticket 000 is the
-# unblocker. The workflow is committed first, deliberately, so the target is visible and the work
-# is finished when this goes green.
-#
 # This pipeline does NOT deploy anything. Vercel deploys the web app on its own; edge functions,
 # migrations and the cron schedule are human-run. See docs/runbook.md.
 
