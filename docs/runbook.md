@@ -87,6 +87,14 @@ npx supabase secrets list
 
 `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` are injected by the platform.
 
+**`TWILIO_AUTH_TOKEN` does double duty, and the second job is security-critical.** Besides
+authenticating outbound sends, it is the HMAC key that
+`_shared/core/twilio-signature.ts` uses to verify inbound requests. If that secret is missing or
+wrong on the deployed function, **every inbound reply is rejected** — verification fails closed by
+design, because an unconfigured secret must never read as "no signature required". Users would text
+in and get silence, with nothing but a `console.warn` to say why. After rotating the Twilio auth
+token, set it here *and* confirm a real inbound reply still works.
+
 ---
 
 ## Cron — the product's heartbeat
@@ -139,6 +147,23 @@ Twilio Console → Phone Numbers → Manage → Active numbers → your number �
 
 This binding exists only in the Twilio console. If it is wrong or missing, inbound replies vanish
 silently — no error surfaces anywhere in this repo.
+
+### The URL must match exactly — signature verification depends on it
+
+Twilio computes the request signature over **the URL as it called it**, so the value configured
+above is part of the HMAC input. If it differs from what the function actually receives — a
+`http://` vs `https://` mismatch, a trailing slash, a different host, any redirect in front of the
+function, or an added query parameter — the digest will not match and **legitimate inbound replies
+will be rejected with a 403**.
+
+Symptom: users text in, nothing happens, and the function logs
+`Rejected inbound request with an invalid or missing Twilio signature`. If you see that for real
+traffic, compare this console URL against `req.url` in the function logs before suspecting the
+code.
+
+The function is deployed `--no-verify-jwt` because Twilio sends no JWT. That flag is *why* the
+signature check is mandatory: it is the only thing authenticating this endpoint. Never remove
+either half of the pairing — see `docs/decisions.md`.
 
 ---
 
