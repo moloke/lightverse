@@ -185,3 +185,36 @@ that rewrites specifiers (a compile step for four pure functions).
 
 **Consequence:** inside `supabase/functions/`, always write the `.ts` extension — that is the form
 that works in both places once the flag is set. `_shared/core/dates.test.ts` already does.
+
+### 2026-09-19 · A deploy on the SMS path is not done until a real text gets a real reply
+
+**The rule:** after deploying either edge function, send a real SMS to the LightVerse number and
+confirm a real reply arrives. Only then is the work finished. Not the tests passing, not a green
+CI run, not a successful `functions deploy`.
+
+**Why, specifically.** Issue #11 (Twilio signature verification) shipped with 33 passing tests
+whose expected digest was cross-checked against Twilio's *own SDK*, and it still took inbound
+replies down for 55 minutes (#25). `req.url` inside a Supabase edge function is
+`http://<ref>.supabase.co/receive-sms-webhook` — TLS terminates at the proxy, the `/functions/v1`
+prefix is stripped — while Twilio signs the console URL, which has both. **No test could have
+caught it.** The proxy is invisible from the test bench; the only place that behaviour exists is
+production.
+
+Two messages were lost. With a larger user base it would have been a day's worth.
+
+**The general form:** a green gate proves the code does what we asked. It proves nothing about what
+the platform does to the request before the code sees it. For anything whose correctness depends on
+a runtime we don't control, "tests pass" is necessary and never sufficient.
+
+**Consequence, accepted deliberately:** signature verification fails *closed*, so a configuration
+mismatch presents as an outage rather than a vulnerability. That is the right trade — the
+alternative is an open SMS relay — but it is exactly what makes the post-deploy check
+non-optional. **Rejected:** automating it as a smoke test. Deploys are human-run and human-gated
+(see the entry above), so the check belongs with the human doing the deploy; automating it would
+need a test number, a live send per deploy, and its own failure modes. Revisit if deploys ever
+stop being manual.
+
+**When it fails:** Twilio's console shows `error_code` 11200 on the inbound message, and
+`sms_logs` has no row for it at all — a rejected request returns before any database write. That
+pair distinguishes "rejected at the gate" from "accepted but no reply", which are different bugs.
+See [`runbook.md`](runbook.md).

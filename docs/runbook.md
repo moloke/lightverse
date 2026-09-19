@@ -41,20 +41,32 @@ fails on a fresh database — `007` is a live candidate (it needs the `uuid-ossp
 ### Deploy
 
 ```bash
-deno check supabase/functions/**/*.ts          # nothing gates this today
+npm run check:edge        # also gated in CI on every PR
 
-supabase functions deploy daily-send-sms
-supabase functions deploy receive-sms-webhook --no-verify-jwt   # REQUIRED
+npx supabase functions deploy daily-send-sms
+npx supabase functions deploy receive-sms-webhook --no-verify-jwt   # REQUIRED
 ```
 
 `--no-verify-jwt` is **mandatory** for the webhook: Twilio sends no Supabase JWT, so without the
 flag every inbound message 401s and the product silently stops working.
 
-That flag is also **exactly why the function must verify the `X-Twilio-Signature` header**, which
-it does not do today. The flag removes the platform's authentication; the signature check is what
-replaces it. Deployed as-is, that URL will send an SMS to any number a stranger posts. The two
-facts belong together permanently — see [`engineering/security.md`](engineering/security.md) and
+That flag is also **exactly why the function verifies the `X-Twilio-Signature` header** — it has
+done so since #11. The flag removes the platform's authentication; the signature check is what
+replaces it. Without both, that URL will send an SMS to any number a stranger posts. The two facts
+belong together permanently — see [`engineering/security.md`](engineering/security.md) and
 `supabase/functions/CLAUDE.md`.
+
+### After deploying: send a real text
+
+**A deploy on the SMS path is not done until a real text gets a real reply.** Send one to the
+LightVerse number and confirm the response arrives.
+
+This is not belt-and-braces. #11 shipped with a green gate and passing tests validated against
+Twilio's own SDK, and still took inbound replies down for 55 minutes — the cause lived in the
+platform's proxy, which no test can see. If the reply does not arrive, check Twilio's console for
+`error_code` **11200** and `sms_logs` for a missing inbound row; together they mean the request was
+rejected at the signature gate. See the `2026-09-19` entry in
+[`decisions.md`](decisions.md).
 
 ### Rollback
 
