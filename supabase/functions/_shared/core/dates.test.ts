@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayKey, isSameDay, UK_TIME_ZONE } from './dates.ts'
+import { dayKey, isSameDay, previousDayKey, UK_TIME_ZONE } from './dates.ts'
 
 describe('dayKey', () => {
   // The case this whole helper exists for (gap C-3).
@@ -78,5 +78,39 @@ describe('isSameDay', () => {
     expect(
       isSameDay(new Date('2026-06-15T08:00:00Z'), new Date('2026-06-15T18:00:00Z'), 'Europe/London'),
     ).toBe(true)
+  })
+})
+
+describe('previousDayKey', () => {
+  it('returns the previous calendar day', () => {
+    expect(previousDayKey('2026-09-19')).toBe('2026-09-18')
+  })
+
+  it('crosses a month boundary', () => {
+    expect(previousDayKey('2026-09-01')).toBe('2026-08-31')
+  })
+
+  it('crosses a year boundary', () => {
+    expect(previousDayKey('2026-01-01')).toBe('2025-12-31')
+  })
+
+  it('handles a leap day', () => {
+    expect(previousDayKey('2028-03-01')).toBe('2028-02-29')
+    expect(previousDayKey('2028-02-29')).toBe('2028-02-28')
+  })
+
+  it('handles a non-leap year February', () => {
+    expect(previousDayKey('2026-03-01')).toBe('2026-02-28')
+  })
+
+  // A day that is only 23 hours long in local time is still one calendar day.
+  it('is unaffected by the BST transition', () => {
+    expect(previousDayKey('2026-03-29')).toBe('2026-03-28')
+    expect(previousDayKey('2026-03-30')).toBe('2026-03-29')
+  })
+
+  it('rejects a malformed key', () => {
+    expect(() => previousDayKey('19-09-2026')).toThrow(RangeError)
+    expect(() => previousDayKey('not-a-date')).toThrow(RangeError)
   })
 })
