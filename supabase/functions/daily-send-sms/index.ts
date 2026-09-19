@@ -139,8 +139,9 @@ serve(async (req) => {
           session.current_step
         )
 
-        // Create SMS message
-        const message = `📖 ${bibleVerse.reference} - Step ${session.current_step}/${session.total_steps}
+        // Create SMS message - include translation (default to ESV if not specified)
+        const translation = bibleVerse.translation || 'ESV'
+        const message = `📖 ${bibleVerse.reference} (${translation}) - Step ${session.current_step}/${session.total_steps}
 
 ${clozeText}
 

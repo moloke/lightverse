@@ -3,6 +3,18 @@ import { createServiceClient } from '../_shared/supabase.ts'
 import { getTwilioConfig, sendSMS } from '../_shared/twilio.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 
+// Helper to return an empty TwiML response (Twilio expects XML, not JSON)
+function twimlResponse(status = 200): Response {
+  const twiml = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+  return new Response(twiml, {
+    status,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'text/xml',
+    },
+  })
+}
+
 // Text validation logic
 function normalizeText(text: string): string {
   return text
@@ -181,13 +193,10 @@ serve(async (req) => {
       await sendSMS(
         twilioConfig,
         from,
-        "Sorry, we couldn't find your account. Please sign up at lightverse.app first!"
+        "Sorry, we couldn't find your account. Please sign up at lightverse.org first!"
       )
 
-      return new Response(
-        JSON.stringify({ message: 'Unknown user' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return twimlResponse()
     }
 
     // Find active session
@@ -198,7 +207,8 @@ serve(async (req) => {
         current_step,
         bible_verses (
           reference,
-          text
+          text,
+          translation
         )
       `)
       .eq('user_id', user.id)
@@ -218,13 +228,10 @@ serve(async (req) => {
       await sendSMS(
         twilioConfig,
         from,
-        "You don't have an active verse. Visit lightverse.app to select one!"
+        "You don't have an active verse. Visit lightverse.org to select one!"
       )
 
-      return new Response(
-        JSON.stringify({ message: 'No active session' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      return twimlResponse()
     }
 
     // Validate response - handle both array and object formats from Supabase
@@ -234,10 +241,7 @@ serve(async (req) => {
     
     if (!bibleVerse || !bibleVerse.text) {
       console.error('No bible verse data found for session:', session.id)
-      return new Response(
-        JSON.stringify({ error: 'Session has no associated verse data' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      )
+      return twimlResponse(500)
     }
     
     const isCorrect = validateResponse(body, bibleVerse.text)
@@ -252,6 +256,10 @@ serve(async (req) => {
       twilio_sid: messageSid,
     })
 
+    // Get translation (default to ESV if not specified)
+    const translation = bibleVerse.translation || 'ESV'
+    const verseWithTranslation = `${bibleVerse.reference} (${translation})`
+
     if (isCorrect) {
       // Update progress
       const result = await updateProgress(
@@ -264,13 +272,13 @@ serve(async (req) => {
       // Send success message
       let responseMsg = ''
       if (result.isCompleted) {
-        responseMsg = `🎉 Congratulations! You've memorized ${bibleVerse.reference}! +${result.xpGain} XP
+        responseMsg = `🎉 Congratulations! You've memorized ${verseWithTranslation}! +${result.xpGain} XP
 
-Visit lightverse.app to choose your next verse! 🙏`
+Visit lightverse.org to choose your next verse! 🙏`
       } else {
         responseMsg = `✅ Correct! +${result.xpGain} XP
 
-You're on step ${result.nextStep}/7 of ${bibleVerse.reference}. Keep going! 💪`
+You're on step ${result.nextStep}/7 of ${verseWithTranslation}. Keep going! 💪`
       }
 
       await sendSMS(twilioConfig, from, responseMsg)
@@ -285,26 +293,14 @@ You're on step ${result.nextStep}/7 of ${bibleVerse.reference}. Keep going! 💪
 
 Hint: "${hint}..."
 
-Reply with the full verse for ${bibleVerse.reference}`
+Reply with the full verse for ${verseWithTranslation}`
 
       await sendSMS(twilioConfig, from, responseMsg)
     }
 
-    return new Response(
-      JSON.stringify({ message: 'Processed successfully', isCorrect }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
-    )
+    return twimlResponse()
   } catch (error) {
     console.error('Error in receive-sms-webhook:', error)
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500,
-      }
-    )
+    return twimlResponse(500)
   }
 })
