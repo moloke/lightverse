@@ -32,6 +32,8 @@ All five run in CI on every PR, in this order (cheapest first, so a PR fails fas
 - `npm test` → `vitest run`, the shared-core suite (`npm run test:watch` while working)
 - `npm run check:edge` → `deno check` over `supabase/functions`, the only thing that typechecks the
   edge functions at all — the root `tsconfig.json` excludes them
+- `npm run check:version` → fails unless this branch bumps `package.json`'s version and records it
+  in the README (see `docs/workflow/versioning.md`)
 - `npm run build` → production build (what Vercel gates on)
 
 Plus `npm run dev` for a local dev server.
@@ -83,8 +85,11 @@ Plus `npm run dev` for a local dev server.
    [`docs/agents/issue-tracker.md`](docs/agents/issue-tracker.md).
 2. `git checkout main && git pull`, then branch `<type>/<issue-number>-<slug>`.
 3. Implement. Tests alongside the code, not after. A bug fix gets a test that fails without the fix.
-4. Run the full gate locally: `npm run lint && npm run typecheck && npm test && npm run build`
-   (plus `npm run check:edge` if you touched a function).
+   **Bump `package.json`'s version and add a README "Version history" line** — `feat` → minor,
+   everything else → patch, and the user-visible test wins over the commit type. When torn, choose
+   the smaller bump. See [`docs/workflow/versioning.md`](docs/workflow/versioning.md).
+4. Run the full gate locally: `npm run check:version && npm run lint && npm run typecheck &&
+   npm test && npm run build` (plus `npm run check:edge` if you touched a function).
 5. Conventional commits: `type(scope): subject` — types `feat|fix|chore|docs|refactor|test|ci`,
    scopes `web|edge|db|core|ci|docs`.
 6. `git push -u origin <branch>`, open a PR with the template, put `Closes #<issue>` in the body,

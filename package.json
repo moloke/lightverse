@@ -1,6 +1,6 @@
 {
   "name": "lightverse",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check:edge": "deno check $(find supabase/functions -name '*.ts' ! -name '*.test.ts')"
+    "check:edge": "deno check $(find supabase/functions -name '*.ts' ! -name '*.test.ts')",
+    "check:version": "node scripts/check-version.mjs"
   },
   "engines": {
     "node": ">=20"
