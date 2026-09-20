@@ -56,6 +56,68 @@ replaces it. Without both, that URL will send an SMS to any number a stranger po
 belong together permanently — see [`engineering/security.md`](engineering/security.md) and
 `supabase/functions/CLAUDE.md`.
 
+### Testing the SMS loop without waiting for 08:00
+
+You do **not** need the daily cron to fire to exercise the reply path.
+
+`receive-sms-webhook` never reads `awaiting_reply` or `last_message_at` as a precondition — it only
+writes them — so **an inbound text needs no preceding outbound**. Text the LightVerse number at any
+hour and it processes immediately. And because `validateResponse` compares against the **full**
+verse text at every step (whole-string Levenshtein ≥ 0.85), texting the verse text always grades
+as correct whatever step the session is on.
+
+What you *do* need is an **active verse session**. Without one the reply is logged as
+`no_active_session` and you get "You don't have an active verse". Create one by picking a verse at
+`/verses` in the web app — a one-off per account.
+
+So the loop is:
+
+1. Pick a verse at `/verses` (once).
+2. Text the verse text to the LightVerse number.
+3. Check the result:
+
+```bash
+# Did the message arrive and get graded? (status: correct / incorrect / no_active_session)
+curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/sms_logs?direction=eq.inbound&order=created_at.desc&limit=3&select=created_at,status,message" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"
+
+# Did the streak move?
+curl -s "$NEXT_PUBLIC_SUPABASE_URL/rest/v1/streaks?select=user_id,current_streak,last_activity_date" \
+  -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"
+```
+
+Nothing stops you replying repeatedly in one sitting to walk several steps up the ladder — that is
+gap C-5 (`awaiting_reply` is written but never read), a real bug that is temporarily convenient here.
+
+**To force a daily send early** (rather than waiting for `0 8 * * *`):
+
+```bash
+curl -X POST "$NEXT_PUBLIC_SUPABASE_URL/functions/v1/daily-send-sms" \
+  -H "Authorization: Bearer $NEXT_PUBLIC_SUPABASE_ANON_KEY"
+```
+
+Note the already-sent-today guard: if the cron already sent this morning, `last_message_at` makes
+this a no-op for that user. **This also sends real, paid messages to every active user** — not just
+you. Prefer the inbound test above.
+
+#### Testing streak transitions
+
+Don't wait days, and don't test the arithmetic by hand — the day-gap logic is unit-tested in
+`_shared/core/streaks.test.ts` (same day, yesterday, longer gaps, month/year/leap-day/BST
+boundaries). A manual test only needs to prove the **wiring** writes the right columns, which takes
+one text.
+
+If you do want to watch a transition, set the starting state directly and then text in:
+
+```sql
+-- yesterday → next reply should increment
+UPDATE public.streaks SET last_activity_date = CURRENT_DATE - 1 WHERE user_id = '<USER_ID>';
+-- three days ago → next reply should reset to 1
+UPDATE public.streaks SET last_activity_date = CURRENT_DATE - 3 WHERE user_id = '<USER_ID>';
+-- today → next reply should change nothing
+UPDATE public.streaks SET last_activity_date = CURRENT_DATE WHERE user_id = '<USER_ID>';
+```
+
 ### After deploying: send a real text
 
 **A deploy on the SMS path is not done until a real text gets a real reply.** Send one to the
