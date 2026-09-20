@@ -42,6 +42,8 @@ bump means is in [`docs/workflow/versioning.md`](docs/workflow/versioning.md).
 `1.0.0` is reserved for public launch. Until then, minor bumps carry features and patches carry
 everything else.
 
+- 0.2.1 — the SMS path uses the shared streak logic instead of its own drifted copy
+  ([#30](https://github.com/moloke/lightverse/issues/30))
 - **0.2.0** — version footer on every page, README version history, and a CI gate that fails a PR
   which does not bump the version ([#21](https://github.com/moloke/lightverse/issues/21))
   - *Everything before this point predates versioning and is recorded here for continuity:*
