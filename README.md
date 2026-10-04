@@ -42,6 +42,8 @@ bump means is in [`docs/workflow/versioning.md`](docs/workflow/versioning.md).
 `1.0.0` is reserved for public launch. Until then, minor bumps carry features and patches carry
 everything else.
 
+- 0.2.4 — `check:version` no longer fails on every push to `main`
+  ([#40](https://github.com/moloke/lightverse/issues/40))
 - 0.2.3 — one `dayKey()` decides every day boundary; the send guard no longer reads runtime-local
   time ([#14](https://github.com/moloke/lightverse/issues/14))
 - 0.2.2 — a one-page v1 roadmap: order, versions and the manual steps

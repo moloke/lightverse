@@ -95,3 +95,28 @@ export function checkVersion({ version, baseVersion, readme }) {
 
   return { ok: problems.length === 0, problems, comparedAgainstBase }
 }
+
+/**
+ * Whether there is a meaningful base version to compare against.
+ *
+ * Extracted and exported so the condition is testable — this is where the bug in #40 lived, while
+ * `checkVersion()` was correct and covered all along.
+ *
+ * The condition is **branch identity, not commit identity**. "Am I on the branch I would be
+ * merging into?" is the real question:
+ *
+ *   - push to the default branch → on it → nothing to compare, the version was already bumped by
+ *     the PR that merged
+ *   - pull request → base differs from the branch → compare
+ *   - locally on `main` → nothing to compare
+ *   - locally on a feature branch with **uncommitted** work → compare, which is the whole point of
+ *     running it before committing
+ *
+ * An earlier attempt compared HEAD's commit with the base's. It fixed the push-to-main case and
+ * quietly broke the last one: before the first commit on a branch, HEAD still points at the base,
+ * so every local pre-commit run skipped the check it exists to perform.
+ */
+export function shouldCompareAgainstBase({ currentBranch, baseBranch }) {
+  if (!currentBranch || !baseBranch) return false
+  return currentBranch !== baseBranch
+}

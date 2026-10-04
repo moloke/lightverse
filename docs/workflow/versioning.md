@@ -59,8 +59,16 @@ It does **not** check that the *size* of the bump matches the commit types. That
 merge-base across rebases and squashes, and a false failure would block every PR. Judgement stays
 with the person writing the PR — see the `Out` section of issue #21.
 
-On a push to the default branch, or in a clone too shallow to see the base, the "must increase"
-rule is skipped and the script says so. Format and README checks always run.
+The "must increase" rule is skipped — and the output says which case applies — when there is
+nothing meaningful to compare against:
+
+- **you are on the base branch** (a push to `main`, or running it locally while on `main`): the
+  version was already bumped by the PR that merged
+- **the base branch cannot be read** (a clone too shallow to see it)
+
+The condition is *branch* identity, not commit identity, so running it on a feature branch
+**before your first commit** still compares — which is the point of running it before you commit.
+Format and README checks always run regardless.
 
 ## What is deliberately not automated
 
