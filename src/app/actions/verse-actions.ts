@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { nextStreak, streakWritePayload } from "@core/streaks.ts";
+import { dayKey } from "@core/dates.ts";
 import { redirect } from "next/navigation";
 
 export async function getVerses() {
@@ -145,7 +146,7 @@ export async function updateProgress(sessionId: string, currentStep: number) {
     // insert path, and bound the resulting error to an unused variable. Practising on the web
     // therefore built no streak at all, silently (gap C-1). The decision now lives in
     // `_shared/core/streaks.ts` so it is testable and shared rather than restated per runtime.
-    const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    const today = dayKey(new Date());
 
     const { data: streakData } = await supabase
         .from("streaks")

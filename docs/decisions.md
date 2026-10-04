@@ -242,3 +242,23 @@ forces the question "what did this actually change for a user?", which is the en
 merge-base across rebases and squashes, and a false failure blocks every PR; the judgement stays
 with the author. **Consequence:** two open PRs will conflict on `package.json`. Accepted as the
 price of a version that always means something.
+
+### 2026-10-04 · One `dayKey()` decides every day boundary, and it resolves Europe/London
+
+Closing gap C-3. Three different date idioms decided "is this the same day?" — the already-sent-today
+guard in `daily-send-sms` compared `getFullYear/getMonth/getDate` (**runtime-local** time), while the
+streak paths used `toISOString().split('T')[0]` (**UTC**). All three now call
+`_shared/core/dates.ts`.
+
+**Consequence, stated because it is a real behaviour change:** the product's day boundary moves from
+midnight UTC to **midnight Europe/London**. In BST those differ between 23:00 and 00:00 UTC, so a
+reply in that hour now counts toward the next day — which is what a UK user means by "tomorrow", and
+the point of `docs/decisions.md`'s "UK-only, 08:00 UTC, no per-user timezones" entry: make the
+assumption explicit and one-parameter reversible rather than accidental.
+
+**Known edge, accepted:** the already-sent-today guard now also resolves London, so a *manual*
+trigger of `daily-send-sms` between 23:00 and 00:00 UTC in summer reads as a new day and will send
+again. Under the old UTC-by-accident behaviour it would have skipped. The cron fires at 08:00 UTC,
+nowhere near that window, so this only affects deliberate off-hours manual triggers — see
+`runbook.md`. **Rejected:** keeping UTC for the guard and London for streaks. Two definitions of
+"day" is precisely how C-3 happened; one definition with a documented edge beats two without.

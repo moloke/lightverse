@@ -2,6 +2,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createServiceClient } from '../_shared/supabase.ts'
 import { getTwilioConfig, sendSMS } from '../_shared/twilio.ts'
 import { corsHeaders } from '../_shared/cors.ts'
+import { dayKey, isSameDay } from '../_shared/core/dates.ts'
 
 // Cloze deletion logic with random word hiding
 function generateClozeText(verseText: string, step: number): string {
@@ -116,15 +117,19 @@ serve(async (req) => {
           }
         }
 
-        // Skip if already sent today
+        // Skip if already sent today.
+        //
+        // This compared getFullYear/getMonth/getDate, which reads *runtime-local* time. It was
+        // correct in production only because Supabase Edge happens to run UTC — in local dev, or
+        // on any differently-configured runtime, it silently answered this question wrongly, and
+        // a wrong answer here means either a duplicate paid SMS or a user who never gets their
+        // verse (gap C-3).
+        //
+        // isSameDay resolves both instants in one explicit timezone instead. Every day-boundary
+        // question in the product now goes through the same helper, so "what is a day?" has one
+        // answer rather than three.
         if (session.last_message_at) {
-          const lastSent = new Date(session.last_message_at)
-          const today = new Date()
-          if (
-            lastSent.getFullYear() === today.getFullYear() &&
-            lastSent.getMonth() === today.getMonth() &&
-            lastSent.getDate() === today.getDate()
-          ) {
+          if (isSameDay(new Date(session.last_message_at), new Date())) {
             results.skipped++
             continue
           }

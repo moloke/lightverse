@@ -97,7 +97,9 @@ curl -X POST "$NEXT_PUBLIC_SUPABASE_URL/functions/v1/daily-send-sms" \
 ```
 
 Note the already-sent-today guard: if the cron already sent this morning, `last_message_at` makes
-this a no-op for that user. **This also sends real, paid messages to every active user** — not just
+this a no-op for that user. **One exception, between 23:00 and 00:00 UTC in summer:** the guard
+resolves Europe/London, so that hour is already the next London day and the send is *not* skipped.
+Avoid manual triggers in that window unless you intend a second message. **This also sends real, paid messages to every active user** — not just
 you. Prefer the inbound test above.
 
 #### Testing streak transitions
