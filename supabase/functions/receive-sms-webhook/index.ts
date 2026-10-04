@@ -8,6 +8,13 @@ import {
 } from '../_shared/core/twilio-signature.ts'
 import { nextStreak, streakWritePayload } from '../_shared/core/streaks.ts'
 import { dayKey } from '../_shared/core/dates.ts'
+import { buildDailyVerseMessage } from '../_shared/core/messages.ts'
+import {
+  FAST_FORWARD_WINDOW_HOURS,
+  isAllowlisted,
+  parseAllowlist,
+  shouldFastForward,
+} from '../_shared/core/fast-forward.ts'
 
 // Helper to return an empty TwiML response (Twilio expects XML, not JSON)
 function twimlResponse(status = 200): Response {
@@ -326,6 +333,65 @@ You're on step ${result.nextStep}/7 of ${verseWithTranslation}. Keep going! 💪
       }
 
       await sendSMS(twilioConfig, from, responseMsg)
+
+      // Fast-forward mode (#38): for an allowlisted number only, send the next step immediately
+      // rather than waiting for the 08:00 cron, so a week's journey takes minutes.
+      //
+      // Off unless TEST_FAST_FORWARD_NUMBERS is set, which is the production state. The allowlist
+      // is checked here, AFTER signature verification — never instead of it.
+      const allowlist = parseAllowlist(Deno.env.get('TEST_FAST_FORWARD_NUMBERS'))
+      if (!result.isCompleted && isAllowlisted(from, allowlist)) {
+        // Count recent fast-forwarded sends so the cap can bound the spend. A failed count must
+        // not read as "zero so far", so it becomes NaN and shouldFastForward refuses it.
+        const windowStart = new Date(
+          Date.now() - FAST_FORWARD_WINDOW_HOURS * 60 * 60 * 1000,
+        ).toISOString()
+        const { count, error: countError } = await supabase
+          .from('sms_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('phone_number', from)
+          .eq('status', 'fast_forward')
+          .gte('created_at', windowStart)
+
+        const sendsInWindow = countError ? Number.NaN : (count ?? Number.NaN)
+
+        if (
+          shouldFastForward({
+            from,
+            allowlist,
+            sendsInWindow,
+            isCorrect,
+            isCompleted: result.isCompleted,
+          })
+        ) {
+          // The real message, from the shared builder. A harness that sends an approximation of
+          // the message tests nothing.
+          const nextMessage = buildDailyVerseMessage({
+            reference: bibleVerse.reference,
+            translation: bibleVerse.translation,
+            text: bibleVerse.text,
+            step: result.nextStep,
+          })
+
+          const sent = await sendSMS(twilioConfig, from, nextMessage)
+
+          // Logged as 'fast_forward' so test traffic is separable from real sends, and so the
+          // cap above can count it.
+          await supabase.from('sms_logs').insert({
+            user_id: user.id,
+            direction: 'outbound',
+            phone_number: from,
+            message: nextMessage,
+            status: 'fast_forward',
+            twilio_sid: sent?.sid ?? null,
+          })
+        } else {
+          console.warn('Fast-forward skipped', {
+            sendsInWindow,
+            countError: countError?.message,
+          })
+        }
+      }
     } else {
       // Send encouragement
       const hint = bibleVerse.text
