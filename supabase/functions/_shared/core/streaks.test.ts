@@ -45,6 +45,9 @@ describe('nextStreak', () => {
     ).toEqual({ currentStreak: 1, shouldWrite: true })
   })
 
+  // The case the two implementations disagreed on before #30: the SMS path compared
+  // last_activity_date by exact string equality, so a row holding a timestamp reset the streak
+  // there while the web path incremented it. Same user state, different streak by channel.
   it('accepts a full ISO timestamp, which older rows contain', () => {
     expect(
       nextStreak({

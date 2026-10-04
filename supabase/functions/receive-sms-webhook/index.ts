@@ -6,6 +6,7 @@ import {
   candidateSignatureUrls,
   isValidTwilioSignatureForAnyUrl,
 } from '../_shared/core/twilio-signature.ts'
+import { nextStreak, streakWritePayload } from '../_shared/core/streaks.ts'
 
 // Helper to return an empty TwiML response (Twilio expects XML, not JSON)
 function twimlResponse(status = 200): Response {
@@ -116,43 +117,43 @@ async function updateProgress(
     .eq('id', userId)
 
   // Update streak
+  //
+  // Uses the same decision as the web path (_shared/core/streaks.ts) rather than a second copy.
+  // The copy that used to live here had already drifted: it compared last_activity_date by exact
+  // string equality, so a row holding a full ISO timestamp reset the streak here while the web
+  // path incremented it. It also computed "yesterday" with local-time arithmetic
+  // (setDate(getDate() - 1) then toISOString()), correct only because this runtime happens to be
+  // UTC — the shared helper does pure calendar arithmetic instead.
   const today = new Date().toISOString().split('T')[0]
 
   const { data: streakData } = await supabase
     .from('streaks')
-    .select('*')
+    .select('current_streak, last_activity_date')
     .eq('user_id', userId)
     .single()
 
-  if (streakData) {
-    const lastActivity = streakData.last_activity_date
+  const streakDecision = nextStreak({
+    lastActivityDate: streakData?.last_activity_date,
+    todayKey: today,
+    currentStreak: streakData?.current_streak,
+  })
 
-    if (lastActivity !== today) {
-      const yesterday = new Date()
-      yesterday.setDate(yesterday.getDate() - 1)
-      const yesterdayStr = yesterday.toISOString().split('T')[0]
-
-      let newStreak = streakData.current_streak
-      if (lastActivity === yesterdayStr) {
-        newStreak += 1
-      } else {
-        newStreak = 1
-      }
-
-      await supabase
-        .from('streaks')
-        .update({
-          current_streak: newStreak,
-          last_activity_date: today,
+  if (streakDecision.shouldWrite) {
+    const { error: streakError } = streakData
+      ? await supabase
+          .from('streaks')
+          .update(streakWritePayload(streakDecision, today))
+          .eq('user_id', userId)
+      : await supabase.from('streaks').insert({
+          user_id: userId,
+          ...streakWritePayload(streakDecision, today),
         })
-        .eq('user_id', userId)
+
+    // Log rather than throw: a streak write failing must not stop the user's reply being
+    // acknowledged. Discarding this result is what hid the web-side bug (#12) for months.
+    if (streakError) {
+      console.error('Failed to write streak', { userId, error: streakError.message })
     }
-  } else {
-    await supabase.from('streaks').insert({
-      user_id: userId,
-      current_streak: 1,
-      last_activity_date: today,
-    })
   }
 
   return { isCompleted, nextStep, xpGain }
