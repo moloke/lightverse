@@ -29,6 +29,11 @@ change the validation logic," "don't touch other functions," "no schema changes.
 Which tests must exist and pass. For a bug fix: name the test that fails before the fix and passes
 after it.
 
+*If this touches the SMS path, say which of the two speeds it needs:* the **compressed walk**
+(fast-forward mode, minutes — grading, cloze steps, copy) or the **real cadence** (days — streaks,
+review intervals, the already-sent-today guard, which replying cannot reach). A compressed walk
+passing is not proof the spaced experience works. See `docs/v1-roadmap.md`.
+
 ## Risk & rollback
 
 Does this touch SMS-sending code (spends money)? A migration (touches data)? The webhook

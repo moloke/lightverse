@@ -11,7 +11,13 @@ Ticket:
 ## How it was tested
 
 <!-- Name the tests. For a bug fix, name the test that fails without the fix.
-     If you verified something by hand (an SMS actually arriving, say), say so explicitly. -->
+     If you verified something by hand (an SMS actually arriving, say), say so explicitly.
+
+     SMS path? State which speed you verified and which you did NOT:
+       • compressed walk (fast-forward, minutes) — grading, cloze steps, copy
+       • real cadence (days) — streaks, review intervals, already-sent-today
+     A real user experiences this spaced over days; a compressed walk cannot reach anything
+     calendar-based. See docs/v1-roadmap.md, "Testing at two speeds". -->
 
 ## Risk & rollback
 

@@ -10,6 +10,9 @@ An SMS-native scripture-memorization service: it texts users a verse each mornin
 progressively blanked out, they reply to recall it, and spaced repetition resurfaces older verses
 before they fade.
 
+**The ordered path to v1 is `docs/v1-roadmap.md`** — what to pick up next, which version it lands
+as, and which steps only a human can do.
+
 **Canonical product context is `docs/product/v1-brief.md`.** Read it before any product-shaped
 change, and do not re-decide anything settled there (SMS-first, UK-only for now, crude review
 ladder over SM-2, trial-to-paid, manual billing). If a task appears to contradict the brief, stop

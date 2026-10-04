@@ -42,6 +42,8 @@ bump means is in [`docs/workflow/versioning.md`](docs/workflow/versioning.md).
 `1.0.0` is reserved for public launch. Until then, minor bumps carry features and patches carry
 everything else.
 
+- 0.2.2 — a one-page v1 roadmap: order, versions and the manual steps
+  ([#36](https://github.com/moloke/lightverse/issues/36))
 - 0.2.1 — the SMS path uses the shared streak logic instead of its own drifted copy
   ([#30](https://github.com/moloke/lightverse/issues/30))
 - **0.2.0** — version footer on every page, README version history, and a CI gate that fails a PR
@@ -66,6 +68,7 @@ Start with **[CLAUDE.md](CLAUDE.md)** — the operating manual for this repo, hu
 | | |
 |---|---|
 | [docs/product/v1-brief.md](docs/product/v1-brief.md) | What we're building and why. Canonical — don't contradict it |
+| [docs/v1-roadmap.md](docs/v1-roadmap.md) | The ordered path to 1.0.0, and what only a human can do |
 | [docs/architecture.md](docs/architecture.md) | Topology, the daily loop, the data model |
 | [docs/runbook.md](docs/runbook.md) | Migrations, deploys, cron, secrets, what to check when SMS stops |
 | [docs/decisions.md](docs/decisions.md) | Why things are the way they are. Read before "fixing" something odd |
