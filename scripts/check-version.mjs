@@ -7,7 +7,7 @@
  */
 import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
-import { checkVersion } from './version-utils.mjs'
+import { checkVersion, shouldCompareAgainstBase } from './version-utils.mjs'
 
 /**
  * The version on the branch we are merging into, or null when there is nothing to compare with.
@@ -16,21 +16,46 @@ import { checkVersion } from './version-utils.mjs'
  * already been bumped by the PR that merged) and a clone too shallow to see the base. Returning
  * null skips only the "must increase" rule — format and README checks still run.
  */
-function baseVersion() {
-  const baseRef = process.env.GITHUB_BASE_REF
-  const candidates = baseRef
-    ? [`origin/${baseRef}`, baseRef]
-    : ['origin/main', 'main']
+function git(args) {
+  try {
+    return execFileSync('git', args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+  } catch {
+    return null
+  }
+}
 
-  for (const ref of candidates) {
+/** The branch we are on. GitHub sets GITHUB_REF_NAME; locally, ask git. */
+function currentBranch() {
+  return process.env.GITHUB_REF_NAME || git(['rev-parse', '--abbrev-ref', 'HEAD'])
+}
+
+/** The branch we would be merging into. On a PR GitHub sets GITHUB_BASE_REF; otherwise `main`. */
+function baseBranch() {
+  return process.env.GITHUB_BASE_REF || 'main'
+}
+
+/**
+ * The version on the base branch, or null when there is nothing meaningful to compare against.
+ *
+ * Null skips only the "must increase" rule; format and README checks always run. See #40.
+ */
+function baseVersion() {
+  const base = baseBranch()
+
+  if (!shouldCompareAgainstBase({ currentBranch: currentBranch(), baseBranch: base })) {
+    return null
+  }
+
+  for (const ref of [`origin/${base}`, base]) {
+    const json = git(['show', `${ref}:package.json`])
+    if (!json) continue // Ref absent (shallow clone) or unreadable — try the next candidate.
     try {
-      const json = execFileSync('git', ['show', `${ref}:package.json`], {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      })
       return JSON.parse(json).version ?? null
     } catch {
-      // Ref not present locally — try the next candidate.
+      // Present but not valid JSON. Fall through rather than crashing the gate.
     }
   }
   return null
@@ -43,9 +68,16 @@ const base = baseVersion()
 const result = checkVersion({ version, baseVersion: base, readme })
 
 if (result.ok) {
-  const against = result.comparedAgainstBase
-    ? `newer than ${base} on the base branch`
-    : 'no base branch available to compare against, so the increase rule was skipped'
+  let against
+  if (result.comparedAgainstBase) {
+    against = `newer than ${base} on ${baseBranch()}`
+  } else if (currentBranch() === baseBranch()) {
+    // Say which skip this is. A gate that reports "skipped" without saying why is how a
+    // permanently-disabled check goes unnoticed.
+    against = `on ${baseBranch()} itself, so the increase rule does not apply`
+  } else {
+    against = `could not read ${baseBranch()} (shallow clone?), so the increase rule was skipped`
+  }
   console.log(`check:version — ${version} (${against})`)
   process.exit(0)
 }

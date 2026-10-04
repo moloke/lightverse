@@ -5,6 +5,7 @@ import {
   isNewerThan,
   parseVersion,
   readmeDocumentsVersion,
+  shouldCompareAgainstBase,
 } from './version-utils.mjs'
 
 describe('parseVersion', () => {
@@ -134,6 +135,56 @@ describe('checkVersion', () => {
   it('reports an unparseable base version rather than silently skipping the check', () => {
     const result = checkVersion({ version: '0.2.0', baseVersion: 'nonsense', readme })
     expect(result.ok).toBe(false)
+    expect(result.comparedAgainstBase).toBe(false)
+  })
+})
+
+/**
+ * Regression tests for #40: `check:version` failed on every push to `main`, because base
+ * resolution compared `main` against itself and found the versions equal.
+ *
+ * `checkVersion()` above was correct and already covered for `baseVersion: null`. The bug was
+ * entirely in deciding *whether* there was a base — the glue around the tested logic.
+ */
+describe('shouldCompareAgainstBase', () => {
+  it('does not compare when we are on the base branch', () => {
+    // A push to the default branch, or a local run while sitting on it. This failed every merge.
+    expect(shouldCompareAgainstBase({ currentBranch: 'main', baseBranch: 'main' })).toBe(false)
+  })
+
+  it('compares from a feature branch', () => {
+    expect(shouldCompareAgainstBase({ currentBranch: 'fix/40-x', baseBranch: 'main' })).toBe(true)
+  })
+
+  // The case a commit-equality check got wrong: before the first commit on a branch, HEAD still
+  // points at the base, so comparing commits skipped the pre-commit check entirely.
+  it('compares from a feature branch even with no commits yet', () => {
+    expect(shouldCompareAgainstBase({ currentBranch: 'feat/new', baseBranch: 'main' })).toBe(true)
+  })
+
+  it('does not compare when the branch cannot be determined', () => {
+    expect(shouldCompareAgainstBase({ currentBranch: null, baseBranch: 'main' })).toBe(false)
+    expect(shouldCompareAgainstBase({ currentBranch: 'main', baseBranch: null })).toBe(false)
+  })
+
+  it('respects a renamed default branch rather than hardcoding one', () => {
+    expect(shouldCompareAgainstBase({ currentBranch: 'trunk', baseBranch: 'trunk' })).toBe(false)
+    expect(shouldCompareAgainstBase({ currentBranch: 'feat/x', baseBranch: 'trunk' })).toBe(true)
+  })
+})
+
+describe('checkVersion is still strict on a PR — the behaviour #40 must not weaken', () => {
+  const readme = '## Version history\n- **0.2.4** — fix\n'
+
+  it('fails an unchanged version when there IS a base', () => {
+    const result = checkVersion({ version: '0.2.4', baseVersion: '0.2.4', readme })
+    expect(result.ok).toBe(false)
+    expect(result.problems.join(' ')).toMatch(/must increase/)
+  })
+
+  it('reports that the comparison was skipped rather than passing silently', () => {
+    const result = checkVersion({ version: '0.2.4', baseVersion: null, readme })
+    expect(result.ok).toBe(true)
     expect(result.comparedAgainstBase).toBe(false)
   })
 })
