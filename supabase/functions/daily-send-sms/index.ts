@@ -3,44 +3,9 @@ import { createServiceClient } from '../_shared/supabase.ts'
 import { getTwilioConfig, sendSMS } from '../_shared/twilio.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 import { dayKey, isSameDay } from '../_shared/core/dates.ts'
+import { generateCloze, renderCloze } from '../_shared/core/cloze.ts'
 
-// Cloze deletion logic with random word hiding
-function generateClozeText(verseText: string, step: number): string {
-  const words = verseText.split(/\s+/)
-  const totalWords = words.length
-  
-  // Progressive hiding: 0%, 15%, 30%, 45%, 60%, 75%, 90%
-  const percentages = [0, 0.15, 0.30, 0.45, 0.60, 0.75, 0.90]
-  const hidePercentage = percentages[step - 1] || 0
-  
-  const wordsToHideCount = Math.floor(totalWords * hidePercentage)
-  
-  if (step === 1 || wordsToHideCount === 0) {
-    return verseText
-  }
-  
-  // Create array of all word indices
-  const indices = Array.from({ length: totalWords }, (_, i) => i)
-  
-  // Fisher-Yates shuffle to randomize
-  for (let i = indices.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [indices[i], indices[j]] = [indices[j], indices[i]]
-  }
-  
-  // Take first N indices as the ones to hide
-  const indicesToHide = new Set(indices.slice(0, wordsToHideCount))
-  
-  // Build the cloze text with blanks
-  return words
-    .map((word, index) => {
-      if (indicesToHide.has(index)) {
-        return '_____' // Replace with blank
-      }
-      return word
-    })
-    .join(' ')
-}
+// Cloze generation lives in _shared/core/cloze.ts — imported above, shared with the web.
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -139,9 +104,8 @@ serve(async (req) => {
         const bibleVerse = Array.isArray(session.bible_verses)
           ? session.bible_verses[0]
           : session.bible_verses
-        const clozeText = generateClozeText(
-          bibleVerse.text,
-          session.current_step
+        const clozeText = renderCloze(
+          generateCloze(bibleVerse.text, session.current_step),
         )
 
         // Create SMS message - include translation (default to ESV if not specified)

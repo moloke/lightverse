@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { createClozeTest } from "@/lib/utils/cloze-deletion";
+import { generateCloze, type Cloze, type ClozeWord } from "@core/cloze.ts";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CheckCircle2, XCircle } from "lucide-react";
@@ -15,14 +15,14 @@ interface ClozeDisplayProps {
 }
 
 export function ClozeDisplay({ text, step, onComplete }: ClozeDisplayProps) {
-    const [clozeData, setClozeData] = useState<any>(null);
+    const [clozeData, setClozeData] = useState<Cloze | null>(null);
     const [inputs, setInputs] = useState<{ [key: number]: string }>({});
     const [results, setResults] = useState<{ [key: number]: boolean | null }>({});
     const [showFeedback, setShowFeedback] = useState(false);
 
     useEffect(() => {
         // Generate cloze test when text or step changes
-        const data = createClozeTest(text, step);
+        const data = generateCloze(text, step);
         setClozeData(data);
         setInputs({});
         setResults({});
@@ -43,7 +43,7 @@ export function ClozeDisplay({ text, step, onComplete }: ClozeDisplayProps) {
         const newResults: { [key: number]: boolean } = {};
         let allCorrect = true;
 
-        clozeData.parts.forEach((part: any, index: number) => {
+        clozeData.parts.forEach((part: ClozeWord, index: number) => {
             if (part.hidden) {
                 const userInput = inputs[index]?.trim().toLowerCase() || "";
                 const correctWord = part.word.toLowerCase();
@@ -74,7 +74,7 @@ export function ClozeDisplay({ text, step, onComplete }: ClozeDisplayProps) {
     return (
         <div className="space-y-8">
             <div className="text-xl md:text-2xl leading-loose font-serif">
-                {clozeData.parts.map((part: any, index: number) => {
+                {clozeData.parts.map((part: ClozeWord, index: number) => {
                     if (!part.hidden) {
                         return <span key={index}>{part.word} </span>;
                     }
