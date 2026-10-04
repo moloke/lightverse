@@ -114,3 +114,53 @@ describe('previousDayKey', () => {
     expect(() => previousDayKey('not-a-date')).toThrow(RangeError)
   })
 })
+
+/**
+ * The already-sent-today guard in `daily-send-sms` is now `isSameDay(lastSent, now)`. It decides
+ * whether a user gets a paid SMS, so its semantics are worth pinning separately from the helper's.
+ *
+ * Wrong in one direction: a duplicate message to every user and double the Twilio bill. Wrong in
+ * the other: nobody gets their verse, and nothing alerts anyone.
+ */
+describe('isSameDay as the already-sent-today guard', () => {
+  it('skips a second send on the same day', () => {
+    const sentAt0800 = new Date('2026-06-16T08:00:00Z')
+    const laterSameDay = new Date('2026-06-16T08:00:05Z')
+    expect(isSameDay(sentAt0800, laterSameDay)).toBe(true)
+  })
+
+  it('allows the next morning send, 24 hours later', () => {
+    expect(
+      isSameDay(new Date('2026-06-16T08:00:00Z'), new Date('2026-06-17T08:00:00Z')),
+    ).toBe(false)
+  })
+
+  it('allows the next morning across the BST transition, when the day is only 23 hours', () => {
+    // Clocks go forward 29 March 2026 at 01:00 UTC. Consecutive 08:00 UTC sends must still read
+    // as different days, or a user silently misses a verse.
+    expect(
+      isSameDay(new Date('2026-03-28T08:00:00Z'), new Date('2026-03-29T08:00:00Z')),
+    ).toBe(false)
+  })
+
+  it('allows the next morning across the GMT transition, when the day is 25 hours', () => {
+    // Clocks go back 25 October 2026. The reverse case: a 25-hour day must not read as two days
+    // within one, which would send twice.
+    expect(
+      isSameDay(new Date('2026-10-25T08:00:00Z'), new Date('2026-10-25T09:00:00Z')),
+    ).toBe(true)
+    expect(
+      isSameDay(new Date('2026-10-25T08:00:00Z'), new Date('2026-10-26T08:00:00Z')),
+    ).toBe(false)
+  })
+
+  // The behaviour change this ticket introduces, stated as a test rather than left implicit.
+  // The guard used to read runtime-local time (UTC in production); it now resolves Europe/London.
+  // In summer those disagree between 23:00 and 00:00 UTC.
+  it('treats 23:30 UTC in summer as the next London day — the window where this differs from UTC', () => {
+    const sent = new Date('2026-06-16T08:00:00Z')
+    const lateSameUtcDay = new Date('2026-06-16T23:30:00Z') // 00:30 on the 17th in London
+    expect(isSameDay(sent, lateSameUtcDay)).toBe(false)
+    expect(isSameDay(sent, lateSameUtcDay, 'UTC')).toBe(true)
+  })
+})

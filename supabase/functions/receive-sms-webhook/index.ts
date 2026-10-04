@@ -7,6 +7,7 @@ import {
   isValidTwilioSignatureForAnyUrl,
 } from '../_shared/core/twilio-signature.ts'
 import { nextStreak, streakWritePayload } from '../_shared/core/streaks.ts'
+import { dayKey } from '../_shared/core/dates.ts'
 
 // Helper to return an empty TwiML response (Twilio expects XML, not JSON)
 function twimlResponse(status = 200): Response {
@@ -124,7 +125,7 @@ async function updateProgress(
   // path incremented it. It also computed "yesterday" with local-time arithmetic
   // (setDate(getDate() - 1) then toISOString()), correct only because this runtime happens to be
   // UTC — the shared helper does pure calendar arithmetic instead.
-  const today = new Date().toISOString().split('T')[0]
+  const today = dayKey(new Date())
 
   const { data: streakData } = await supabase
     .from('streaks')
