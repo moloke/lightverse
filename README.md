@@ -44,6 +44,8 @@ everything else.
 
 - 0.2.2 — a one-page v1 roadmap: order, versions and the manual steps
   ([#36](https://github.com/moloke/lightverse/issues/36))
+- 0.2.1 — the SMS path uses the shared streak logic instead of its own drifted copy
+  ([#30](https://github.com/moloke/lightverse/issues/30))
 - **0.2.0** — version footer on every page, README version history, and a CI gate that fails a PR
   which does not bump the version ([#21](https://github.com/moloke/lightverse/issues/21))
   - *Everything before this point predates versioning and is recorded here for continuity:*
