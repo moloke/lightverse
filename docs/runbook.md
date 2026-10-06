@@ -102,6 +102,37 @@ resolves Europe/London, so that hour is already the next London day and the send
 Avoid manual triggers in that window unless you intend a second message. **This also sends real, paid messages to every active user** — not just
 you. Prefer the inbound test above.
 
+#### Fast-forward mode — a week's journey in minutes
+
+For an **allowlisted number only**, a correct reply sends the next step immediately instead of
+waiting for the 08:00 cron. Walking a verse to its last cloze step takes minutes.
+
+```bash
+# on — your own number only, in the same E.164 form Twilio sends
+npx supabase secrets set TEST_FAST_FORWARD_NUMBERS=+447700900123
+
+# off — this is the rollback too, and it needs no deploy
+npx supabase secrets unset TEST_FAST_FORWARD_NUMBERS
+```
+
+**Write the number as `+44…`, not `07…`.** Matching ignores spaces and punctuation but does *not*
+reconcile national and international formats, because inferring country codes inside an allowlist
+is how you match a number you did not mean to.
+
+- **Unset or empty means off.** That is the production state.
+- **Capped at 20 sends per number per rolling 24 hours.** Past the cap it logs and stops — the only
+  thing between a logic bug and the Twilio balance.
+- Fast-forwarded sends are logged with `status = 'fast_forward'`, so test traffic stays separable
+  from real sends. That row is also what the cap counts.
+- It needs an **active verse session**: pick a verse at `/verses` first, or replies log as
+  `no_active_session`.
+- Only a **correct** reply fast-forwards. An incorrect one returns the hint, as in production.
+
+**What it cannot do:** it compresses *messages*, not *the calendar*. It cannot bring a spaced
+review due, and **streaks will not move**, because every reply lands on the same calendar day. For
+anything date-based, move the dates with SQL below — never a fake clock in function code, which
+would put a lying "now" on the paid send path.
+
 #### Testing streak transitions
 
 Don't wait days, and don't test the arithmetic by hand — the day-gap logic is unit-tested in
@@ -159,6 +190,8 @@ npx supabase secrets set TWILIO_ACCOUNT_SID=<TWILIO_ACCOUNT_SID>
 npx supabase secrets set TWILIO_AUTH_TOKEN=<TWILIO_AUTH_TOKEN>
 npx supabase secrets set TWILIO_PHONE_NUMBER=<TWILIO_PHONE_NUMBER>
 npx supabase secrets set TWILIO_WEBHOOK_URL=<TWILIO_WEBHOOK_URL>   # the exact Twilio console URL
+# Optional, testing only — unset in normal operation. See "Fast-forward mode" below.
+npx supabase secrets set TEST_FAST_FORWARD_NUMBERS=<YOUR_OWN_NUMBER>
 npx supabase secrets list
 ```
 

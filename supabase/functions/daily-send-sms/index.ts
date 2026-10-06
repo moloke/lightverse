@@ -3,9 +3,10 @@ import { createServiceClient } from '../_shared/supabase.ts'
 import { getTwilioConfig, sendSMS } from '../_shared/twilio.ts'
 import { corsHeaders } from '../_shared/cors.ts'
 import { dayKey, isSameDay } from '../_shared/core/dates.ts'
-import { generateCloze, renderCloze } from '../_shared/core/cloze.ts'
+import { buildDailyVerseMessage } from '../_shared/core/messages.ts'
 
-// Cloze generation lives in _shared/core/cloze.ts — imported above, shared with the web.
+// Cloze generation and message copy live in _shared/core/ — imported above, shared with the
+// web app and with fast-forward mode.
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -104,17 +105,15 @@ serve(async (req) => {
         const bibleVerse = Array.isArray(session.bible_verses)
           ? session.bible_verses[0]
           : session.bible_verses
-        const clozeText = renderCloze(
-          generateCloze(bibleVerse.text, session.current_step),
-        )
-
-        // Create SMS message - include translation (default to ESV if not specified)
-        const translation = bibleVerse.translation || 'ESV'
-        const message = `📖 ${bibleVerse.reference} (${translation}) - Step ${session.current_step}/${session.total_steps}
-
-${clozeText}
-
-Reply with the full verse to continue! 💪`
+        // Composed by _shared/core/messages.ts, so fast-forward mode (#38) sends the identical
+        // message rather than an approximation of it.
+        const message = buildDailyVerseMessage({
+          reference: bibleVerse.reference,
+          translation: bibleVerse.translation,
+          text: bibleVerse.text,
+          step: session.current_step,
+          totalSteps: session.total_steps,
+        })
 
         // Send SMS
         const result = await sendSMS(
