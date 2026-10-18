@@ -323,13 +323,13 @@ serve(async (req) => {
       // Send success message
       let responseMsg = ''
       if (result.isCompleted) {
-        responseMsg = `🎉 Congratulations! You've memorized ${verseWithTranslation}! +${result.xpGain} XP
+        responseMsg = `Congratulations! You've memorized ${verseWithTranslation}! +${result.xpGain} XP
 
-Visit lightverse.org to choose your next verse! 🙏`
+Visit lightverse.org to choose your next verse!`
       } else {
-        responseMsg = `✅ Correct! +${result.xpGain} XP
+        responseMsg = `Correct! +${result.xpGain} XP
 
-You're on step ${result.nextStep}/7 of ${verseWithTranslation}. Keep going! 💪`
+You're on step ${result.nextStep}/7 of ${verseWithTranslation}. Keep going!`
       }
 
       await sendSMS(twilioConfig, from, responseMsg)
@@ -399,7 +399,10 @@ You're on step ${result.nextStep}/7 of ${verseWithTranslation}. Keep going! 💪
         .slice(0, 5)
         .join(' ')
 
-      const responseMsg = `Not quite right. Keep trying! 💪
+      // "Correct!" and "Not quite." carry the signal that the tick and cross used to. Leading
+      // with the verdict keeps it readable at a glance in a notification, without an emoji
+      // dragging the whole message into UCS-2. See _shared/core/sms-encoding.ts.
+      const responseMsg = `Not quite. Keep trying!
 
 Hint: "${hint}..."
 

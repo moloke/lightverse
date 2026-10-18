@@ -8,9 +8,11 @@ import { generateCloze, renderCloze, TOTAL_STEPS } from './cloze.ts'
  * number — and a test harness that sends an approximation of the message tests nothing. So the
  * template lives here and both callers use it. See CLAUDE.md rule 8.
  *
- * Note for #20: the emoji below force UCS-2 encoding at 70 characters per segment instead of
- * GSM-7's 160, which is roughly half of the outbound SMS bill. When that is stripped, this is the
- * only place it needs stripping.
+ * **Keep this copy GSM-7 clean.** One non-GSM-7 character forces the whole message into UCS-2 at
+ * 70 characters per segment instead of GSM-7's 160 — the emoji that used to be here were costing
+ * 51% of outbound segment volume (#20). `sms-encoding.ts` holds the guard, and the test suite
+ * fails if a template stops being GSM-7 encodable. The realistic regression is not an emoji but a
+ * curly quote or an em dash pasted in from a word processor.
  */
 
 export interface DailyVerseMessage {
@@ -30,9 +32,9 @@ export function buildDailyVerseMessage(input: DailyVerseMessage): string {
   const translation = input.translation || 'ESV'
   const clozeText = renderCloze(generateCloze(input.text, input.step, input.random))
 
-  return `📖 ${input.reference} (${translation}) - Step ${input.step}/${totalSteps}
+  return `${input.reference} (${translation}) - Step ${input.step}/${totalSteps}
 
 ${clozeText}
 
-Reply with the full verse to continue! 💪`
+Reply with the full verse to continue!`
 }

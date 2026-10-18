@@ -42,6 +42,8 @@ bump means is in [`docs/workflow/versioning.md`](docs/workflow/versioning.md).
 `1.0.0` is reserved for public launch. Until then, minor bumps carry features and patches carry
 everything else.
 
+- 0.2.7 — no emoji in SMS copy: 50.7% fewer outbound segments, with the correct/incorrect signal
+  carried in words ([#20](https://github.com/moloke/lightverse/issues/20))
 - 0.2.6 — fast-forward mode: an allowlisted number can walk a verse's whole cloze ladder in minutes
   ([#38](https://github.com/moloke/lightverse/issues/38))
 - 0.2.5 — one cloze implementation shared by SMS and web; the file that documented the dead one is

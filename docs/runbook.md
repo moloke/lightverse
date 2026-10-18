@@ -151,6 +151,20 @@ UPDATE public.streaks SET last_activity_date = CURRENT_DATE - 3 WHERE user_id = 
 UPDATE public.streaks SET last_activity_date = CURRENT_DATE WHERE user_id = '<USER_ID>';
 ```
 
+### Deploying a branch to test it
+
+Deploying an unmerged branch is a fine way to test — but **production is then ahead of `main`**, and
+a later deploy from a clean checkout silently reverts it. That is exactly how a webhook fix ran
+unversioned from January to September (#18).
+
+So after testing a branch: **merge it, or redeploy `main`.** Don't leave it. To check what is
+actually live:
+
+```bash
+# from a scratch directory — it writes into supabase/functions/ and will clobber your work
+npx supabase functions download receive-sms-webhook --project-ref $(cat supabase/.temp/project-ref)
+```
+
 ### After deploying: send a real text
 
 **A deploy on the SMS path is not done until a real text gets a real reply.** Send one to the
