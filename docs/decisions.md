@@ -262,3 +262,27 @@ again. Under the old UTC-by-accident behaviour it would have skipped. The cron f
 nowhere near that window, so this only affects deliberate off-hours manual triggers — see
 `runbook.md`. **Rejected:** keeping UTC for the guard and London for streaks. Two definitions of
 "day" is precisely how C-3 happened; one definition with a documented edge beats two without.
+
+### 2026-10-18 · No emoji in outbound SMS copy — it halves the bill
+
+Measured across all 20 seeded verses at all 7 steps, including the `LIGHTVERSE: ` prefix: emoji
+cost **257 of 507 segments, −50.7%**. One non-GSM-7 character forces the *entire* message into
+UCS-2 at 70 characters per segment instead of GSM-7's 160, so a single 📖 in a header more than
+doubled the cost of everything after it.
+
+`docs/product/v1-brief.md` names SMS cost as the product's designed-in constraint — the reason for
+not building a web/push app — which made this the largest single cost lever in the backlog. The
+readiness plan rated it P2 (C-9); that was wrong by an order of magnitude.
+
+**The replacement carries the signal in words.** ✅ and the hint emoji distinguished correct from
+incorrect at a glance, so the copy now leads with the verdict: `Correct! +10 XP` and
+`Not quite. Keep trying!`. **Rejected:** keeping one emoji for the correct/incorrect marker — one
+is all it takes to force UCS-2, so it would have kept essentially all of the cost for a fraction of
+the signal. **Also rejected:** ASCII markers like `[OK]` / `[X]`, which read as machine output in a
+product whose whole voice is a text from someone who cares.
+
+**Consequence:** outbound copy must stay GSM-7 encodable, and `_shared/core/sms-encoding.ts` plus
+its suite enforce it. The realistic regression is not an emoji but a **curly quote, en dash, em
+dash or ellipsis character** pasted from a word processor — each is outside GSM-7 and each would
+silently double the bill. The tests assert against the `LIGHTVERSE: ` prefix too, since a template
+that is clean alone can still ship dirty.

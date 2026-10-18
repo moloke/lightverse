@@ -32,13 +32,16 @@ The product currently teaches and does not remind, which is the half users would
 | 2 | Zero-cost post-deploy smoke test | [#33](https://github.com/moloke/lightverse/issues/33) | `0.2.2` | 2 Action secrets |
 | 3 | One `dayKey()` for every date decision | [#14](https://github.com/moloke/lightverse/issues/14) | `0.2.3` | deploy |
 | 4 | One cloze implementation, honest docstring | [#13](https://github.com/moloke/lightverse/issues/13) | `0.2.4` | deploy |
-| 5 | **Fast-forward mode** — a week's journey in minutes | [#38](https://github.com/moloke/lightverse/issues/38) | `0.2.5` | 1 secret, your number |
-| 6 | **Review schema** — additive migration | [#34](https://github.com/moloke/lightverse/issues/34) | `0.2.6` | **apply migration** |
-| 7 | **Review engine** — the ladder + scheduler | [#35](https://github.com/moloke/lightverse/issues/35) | **`0.3.0`** | deploy + watch |
-| 8 | Strip emoji — halves SMS cost | [#20](https://github.com/moloke/lightverse/issues/20) | `0.3.1` | **pick the copy** |
+| 5 | **Fast-forward mode** — a week's journey in minutes | [#38](https://github.com/moloke/lightverse/issues/38) | `0.2.6` | 1 secret, your number |
+| 6 | Strip emoji — halves SMS cost | [#20](https://github.com/moloke/lightverse/issues/20) | `0.2.7` | **pick the copy** |
+| 7 | **Review schema** — additive migration | [#34](https://github.com/moloke/lightverse/issues/34) | `0.2.8` | **apply migration** |
+| 8 | **Review engine** — the ladder + scheduler | [#35](https://github.com/moloke/lightverse/issues/35) | **`0.3.0`** | deploy + watch |
 | 9 | Word-level feedback — *only if quick* | not yet raised | `0.4.0` | deploy |
 | 10 | Stripe payment link, accounts marked by hand | not raised — not code | — | **all yours** |
 | 11 | Launch | — | **`1.0.0`** | your call |
+
+*#20 was done ahead of its planned slot, once #13 unblocked it — a 50% cost saving was worth taking
+early. Versions above reflect what actually shipped.*
 
 **#35 is v1.** Everything above it makes the ground safe to build on; everything below is polish or
 commerce. If you only ship one thing, ship #35.
@@ -88,8 +91,6 @@ Collected here so nothing hides in a ticket. Step numbers refer to the table abo
 6. **Decide on auto-deploying edge functions** (not migrations). This reverses readiness-plan §3.8.
    If yes, create a `SUPABASE_ACCESS_TOKEN` secret. **#33 must land first** — it is the only
    check that catches the #25 class.
-7. **Pick the copy for #20.** Stripping emoji halves the bill, but they carry the
-   correct/incorrect signal; the replacement wording is a taste call. Ask for drafted options.
 8. **Watch the first review-engine send** (**#35**). It changes what the 08:00 cron sends to
    every user. Nothing alerts you if it goes wrong, and every extra message is money.
 9. **Billing**, start to finish: Stripe link, marking accounts paid, deciding when trials end.
